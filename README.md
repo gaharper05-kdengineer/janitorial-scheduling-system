@@ -10,6 +10,12 @@ CleanTrack is a Spring Boot weekly scheduling MVP for janitorial operations. It 
 
 The default profile uses an in-memory H2 database so the demo works immediately. To use MySQL, replace the datasource properties in `src/main/resources/application.properties` with your MySQL database URL, username, and password, then set `spring.jpa.hibernate.ddl-auto=update`.
 
+## Manager login
+
+The whole app requires a manager login. Locally it defaults to username `manager`, password `changeme123` (set in `application.properties`) — sign in at `http://localhost:8080/login.html`.
+
+In production (Render), set the `MANAGER_USERNAME` and `MANAGER_PASSWORD` environment variables in the Render dashboard to real credentials — never commit real credentials to this file or to `application.properties`.
+
 ## Folder Structure
 
 The workspace contains two folders by default, where:

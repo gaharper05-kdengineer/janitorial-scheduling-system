@@ -7,6 +7,14 @@ function displayDate(date) { return date.toLocaleDateString('en-US', { month: 's
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
+function csrfHeaders() {
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? { 'X-XSRF-TOKEN': decodeURIComponent(match[1]) } : {};
+}
+async function logout() {
+  await fetch('/logout', { method: 'POST', headers: csrfHeaders() });
+  window.location.href = '/login.html?logout';
+}
 function regularTime(value) {
   if (!value) return '';
   const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
@@ -93,6 +101,7 @@ document.querySelector('#next-week').addEventListener('click', () => { state.wee
 function openNewShift(employeeName = '', shiftDate = '') { const form = document.querySelector('#shift-form'); form.reset(); form.shiftId.value = ''; form.employeeName.value = employeeName; form.shiftDate.value = shiftDate; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
 function openEditShift(shift) { const form = document.querySelector('#shift-form'); form.shiftId.value = shift.id; form.employeeName.value = shift.employeeName; form.shiftDate.value = shift.shiftDate; form.startTime.value = to24HourTime(shift.startTime); form.endTime.value = to24HourTime(shift.endTime); form.lunchMinutes.value = String(shift.lunchMinutes || 0); form.shiftType.value = shift.shiftType; document.querySelector('#dialog-title').textContent = 'Edit employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
 document.querySelector('#open-shift').addEventListener('click', () => openNewShift());
+document.querySelector('#logout-button').addEventListener('click', logout);
 document.querySelector('#schedule-body').addEventListener('click', event => {
   if (suppressNextClick) { suppressNextClick = false; return; }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
@@ -135,7 +144,7 @@ function startEditingEmployeeName(nameEl) {
     if (!newName || newName === originalName) { render(); return; }
     const response = await fetch(`/api/schedule/employees/${encodeURIComponent(originalName)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
       body: JSON.stringify({ employeeName: newName })
     });
     if (response.ok) {
@@ -206,7 +215,7 @@ document.addEventListener('mouseup', async () => {
   if (conflict) { alert(`${shift.employeeName} already has a shift on ${targetDate}.`); return; }
   const response = await fetch(`/api/schedule/${finished.shiftId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
     body: JSON.stringify({
       employeeName: shift.employeeName,
       shiftDate: targetDate,
@@ -229,5 +238,5 @@ document.querySelector('#shift-form').endTime.addEventListener('input', updateCa
 document.querySelector('#shift-form').lunchMinutes.addEventListener('change', updateCalculatedHours);
 document.querySelector('#shift-form .close').addEventListener('click', () => document.querySelector('#shift-dialog').close());
 document.querySelector('#shift-form [value="cancel"]').addEventListener('click', () => document.querySelector('#shift-dialog').close());
-document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType') }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
+document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType') }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
 loadWeek();
