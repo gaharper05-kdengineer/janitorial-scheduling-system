@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CleanTrack | Weekly schedule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">C</span><span>CleanTrack</span></div>
+      <div class="top-actions"><span class="status-dot"></span><span>Operations desk</span><button class="avatar">KM</button></div>
+    </header>
+
+    <section class="intro">
+      <div><p class="eyebrow">Weekly operations</p><h1>Team schedule</h1><p class="subhead">Plan coverage, keep hours balanced, and see the whole week at a glance.</p></div>
+      <div class="week-actions"><button class="button button-quiet" id="previous-week" aria-label="Previous week">&#8592;</button><div class="date-range" id="date-range">Loading week</div><button class="button button-quiet" id="next-week" aria-label="Next week">&#8594;</button><button class="button button-primary" id="open-shift">+ Add shift</button></div>
+    </section>
+
+    <section class="metrics" aria-label="Schedule summary">
+      <div class="metric"><span class="metric-label">Scheduled hours</span><strong id="scheduled-hours">0.00</strong><span class="metric-note">Across all employees</span></div>
+      <div class="metric"><span class="metric-label">Active employees</span><strong id="employee-count">0</strong><span class="metric-note">Working this week</span></div>
+      <div class="metric"><span class="metric-label">Budget variance</span><strong id="variance">0.00 hrs</strong><span class="metric-note">Against weekly target</span></div>
+      <label class="budget-card"><span class="metric-label">Weekly hour budget</span><input id="budget" type="number" min="0" step="0.5" value="416"><span class="metric-note">Update to recalculate variance</span></label>
+    </section>
+
+    <section class="schedule-panel">
+      <div class="panel-heading"><div><p class="eyebrow">Coverage map</p><h2>Employee shifts</h2></div><div class="legend"><span><i class="swatch day"></i>Day</span><span><i class="swatch swing"></i>Evening</span><span><i class="swatch overnight"></i>Overnight</span></div></div>
+      <div class="table-wrap"><table><thead id="schedule-head"></thead><tbody id="schedule-body"><tr><td class="loading" colspan="9">Loading schedule...</td></tr></tbody></table></div>
+      <div class="table-footer"><span id="shift-count">0 shifts</span><span>Hours calculate from each entered shift</span></div>
+    </section>
+  </main>
+
+  <dialog id="shift-dialog"><form id="shift-form"><input type="hidden" name="shiftId"><div class="dialog-heading"><div><p class="eyebrow">Schedule coverage</p><h2 id="dialog-title">Add employee shift</h2></div><button type="button" class="close" value="cancel" aria-label="Close">&times;</button></div><div class="form-grid"><label>Employee name<input name="employeeName" required placeholder="e.g. Jordan Lee"></label><label>Date<input name="shiftDate" type="date" required></label><label>Start time<input name="startTime" type="time" required></label><label>End time<input name="endTime" type="time" required></label><label>Lunch break<select name="lunchMinutes"><option value="0">None</option><option value="30">30 minutes</option><option value="60">1 hour</option></select></label><label>Calculated hours<input id="calculated-hours" type="text" value="Enter start and end time" readonly></label><label>Shift type<select name="shiftType"><option value="day">Day</option><option value="swing">Evening</option><option value="overnight">Overnight</option></select></label></div><div class="dialog-actions"><button type="button" class="button button-quiet" value="cancel">Cancel</button><button type="submit" class="button button-primary" value="default">Save shift</button></div></form></dialog>
+  <script src="/app.js"></script>
+</body>
+</html>
