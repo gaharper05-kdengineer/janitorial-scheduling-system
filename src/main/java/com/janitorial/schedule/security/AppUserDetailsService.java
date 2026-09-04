@@ -1,5 +1,6 @@
 package com.janitorial.schedule.security;
 
+import com.janitorial.schedule.model.EmployeeRepository;
 import com.janitorial.schedule.model.ManagerAccountRepository;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -8,11 +9,14 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ManagerUserDetailsService implements UserDetailsService {
+public class AppUserDetailsService implements UserDetailsService {
     private final ManagerAccountRepository managerAccountRepository;
+    private final EmployeeRepository employeeRepository;
 
-    public ManagerUserDetailsService(ManagerAccountRepository managerAccountRepository) {
+    public AppUserDetailsService(ManagerAccountRepository managerAccountRepository,
+                                  EmployeeRepository employeeRepository) {
         this.managerAccountRepository = managerAccountRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     @Override
@@ -23,6 +27,12 @@ public class ManagerUserDetailsService implements UserDetailsService {
                         .password(account.getPassword())
                         .roles("MANAGER")
                         .build())
-                .orElseThrow(() -> new UsernameNotFoundException("Manager account not found: " + username));
+                .or(() -> employeeRepository.findByEmployeeId(username)
+                        .map(employee -> User.builder()
+                                .username(employee.getEmployeeId())
+                                .password(employee.getPassword())
+                                .roles("EMPLOYEE")
+                                .build()))
+                .orElseThrow(() -> new UsernameNotFoundException("Account not found: " + username));
     }
 }

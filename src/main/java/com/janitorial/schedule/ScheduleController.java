@@ -1,7 +1,13 @@
 package com.janitorial.schedule;
 
+import com.janitorial.schedule.model.Employee;
+import com.janitorial.schedule.model.EmployeeRepository;
 import com.janitorial.schedule.model.Shift;
 import com.janitorial.schedule.model.ShiftRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -10,18 +16,25 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/schedule")
 public class ScheduleController {
     private final ShiftRepository shiftRepository;
+    private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public ScheduleController(ShiftRepository shiftRepository) {
+    public ScheduleController(ShiftRepository shiftRepository, EmployeeRepository employeeRepository,
+                               PasswordEncoder passwordEncoder) {
         this.shiftRepository = shiftRepository;
+        this.employeeRepository = employeeRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @GetMapping
@@ -48,20 +61,47 @@ public class ScheduleController {
     }
 
     @PutMapping("/employees/{employeeName}")
-    public List<Shift> renameEmployee(@PathVariable String employeeName, @RequestBody EmployeeRenameRequest request) {
+    public List<Shift> updateEmployee(@PathVariable String employeeName, @RequestBody EmployeeUpdateRequest request) {
         String newName = request.employeeName() == null ? "" : request.employeeName().trim();
         if (newName.isEmpty()) {
             throw new IllegalArgumentException("Employee name is required");
+        }
+        String employeeId = request.employeeId() == null ? "" : request.employeeId().trim();
+        if (!employeeId.isEmpty() && !employeeId.matches("\\d{5}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Employee ID must be exactly 5 digits");
+        }
+        Employee employee = employeeRepository.findByName(employeeName).orElse(null);
+        if (!employeeId.isEmpty()) {
+            Employee currentEmployee = employee;
+            employeeRepository.findByEmployeeId(employeeId).ifPresent(existing -> {
+                if (currentEmployee == null || !existing.getId().equals(currentEmployee.getId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "That employee ID is already assigned to " + existing.getName());
+                }
+            });
+        }
+        String newEmployeeId = employeeId.isEmpty() ? null : employeeId;
+        String encodedPassword = employeeId.isEmpty() ? null : passwordEncoder.encode(employeeId);
+        if (employee != null) {
+            employee.update(newName, newEmployeeId, encodedPassword);
+            employeeRepository.save(employee);
+        } else if (newEmployeeId != null) {
+            employeeRepository.save(new Employee(newName, newEmployeeId, encodedPassword));
         }
         List<Shift> shifts = shiftRepository.findByEmployeeName(employeeName);
         shifts.forEach(shift -> shift.renameEmployee(newName));
         return shiftRepository.saveAll(shifts);
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequest(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", ex.getReason()));
+    }
+
     public record ShiftRequest(String employeeName, LocalDate shiftDate, String startTime, String endTime,
                                Integer lunchMinutes, String shiftType) {
     }
 
-    public record EmployeeRenameRequest(String employeeName) {
+    public record EmployeeUpdateRequest(String employeeName, String employeeId) {
     }
 }

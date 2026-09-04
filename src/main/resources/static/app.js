@@ -1,4 +1,4 @@
-const state = { weekStart: monday(new Date()), shifts: [] };
+const state = { weekStart: monday(new Date()), shifts: [], employees: [], role: 'EMPLOYEE' };
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 function monday(date) { const result = new Date(date); const day = result.getDay(); result.setDate(result.getDate() - (day === 0 ? 6 : day - 1)); result.setHours(0, 0, 0, 0); return result; }
@@ -82,7 +82,7 @@ function render() {
       const emptyAttrs = shift ? '' : ` data-employee-name="${escapeHtml(name)}" role="button" tabindex="0"`;
       return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}</span><span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span></div>` : ''}</td>`;
     }).join('');
-    return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}">${escapeHtml(name)}</span></td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
+    return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}" role="button" tabindex="0">${escapeHtml(name)}</span></td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
   }).join('') : '<tr><td class="loading" colspan="9">No shifts scheduled for this week.</td></tr>';
   const totalHours = state.shifts.reduce((sum, shift) => sum + Number(shift.hours), 0);
   const budget = Number(document.querySelector('#budget').value) || 0;
@@ -95,23 +95,39 @@ function render() {
   document.querySelector('#date-range').textContent = `${displayDate(state.weekStart)} - ${displayDate(end)}, ${end.getFullYear()}`;
 }
 async function loadWeek() { const response = await fetch(`/api/schedule?weekStart=${iso(state.weekStart)}`); state.shifts = response.ok ? await response.json() : []; render(); }
+async function loadEmployees() { const response = await fetch('/api/employees'); state.employees = response.ok ? await response.json() : []; }
+async function loadRole() {
+  const response = await fetch('/api/account/me');
+  const body = response.ok ? await response.json() : { role: 'EMPLOYEE' };
+  state.role = body.role;
+  if (state.role !== 'MANAGER') document.body.classList.add('view-only');
+}
+async function bootstrap() {
+  await loadRole();
+  const tasks = [loadWeek()];
+  if (state.role === 'MANAGER') tasks.push(loadEmployees());
+  await Promise.all(tasks);
+}
 document.querySelector('#budget').addEventListener('input', render);
 document.querySelector('#previous-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() - 7); loadWeek(); });
 document.querySelector('#next-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() + 7); loadWeek(); });
 function openNewShift(employeeName = '', shiftDate = '') { const form = document.querySelector('#shift-form'); form.reset(); form.shiftId.value = ''; form.employeeName.value = employeeName; form.shiftDate.value = shiftDate; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
 function openEditShift(shift) { const form = document.querySelector('#shift-form'); form.shiftId.value = shift.id; form.employeeName.value = shift.employeeName; form.shiftDate.value = shift.shiftDate; form.startTime.value = to24HourTime(shift.startTime); form.endTime.value = to24HourTime(shift.endTime); form.lunchMinutes.value = String(shift.lunchMinutes || 0); form.shiftType.value = shift.shiftType; document.querySelector('#dialog-title').textContent = 'Edit employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
 document.querySelector('#open-shift').addEventListener('click', () => openNewShift());
+document.querySelector('#download-schedule').addEventListener('click', () => window.print());
 document.querySelector('#logout-button').addEventListener('click', logout);
 document.querySelector('#schedule-body').addEventListener('click', event => {
+  if (state.role !== 'MANAGER') return;
   if (suppressNextClick) { suppressNextClick = false; return; }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openEditShift(shift); return; }
   const emptyCell = event.target.closest('.shift-cell[data-employee-name]');
   if (emptyCell) { openNewShift(emptyCell.dataset.employeeName, emptyCell.dataset.shiftDate); return; }
   const nameEl = event.target.closest('.employee-name');
-  if (nameEl && !nameEl.querySelector('input')) startEditingEmployeeName(nameEl);
+  if (nameEl) openEmployeeDialog(nameEl.dataset.employeeName);
 });
 document.querySelector('#schedule-body').addEventListener('keydown', event => {
+  if (state.role !== 'MANAGER') return;
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) {
@@ -124,48 +140,49 @@ document.querySelector('#schedule-body').addEventListener('keydown', event => {
   if (emptyCell) {
     event.preventDefault();
     openNewShift(emptyCell.dataset.employeeName, emptyCell.dataset.shiftDate);
+    return;
+  }
+  const nameEl = event.target.closest('.employee-name');
+  if (nameEl) {
+    event.preventDefault();
+    openEmployeeDialog(nameEl.dataset.employeeName);
   }
 });
-function startEditingEmployeeName(nameEl) {
-  const originalName = nameEl.dataset.employeeName;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'employee-name-input';
-  input.value = originalName;
-  nameEl.replaceChildren(input);
-  input.focus();
-  input.select();
-  let settled = false;
-  const cancel = () => { if (settled) return; settled = true; render(); };
-  const commit = async () => {
-    if (settled) return;
-    settled = true;
-    const newName = input.value.trim();
-    if (!newName || newName === originalName) { render(); return; }
-    const response = await fetch(`/api/schedule/employees/${encodeURIComponent(originalName)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-      body: JSON.stringify({ employeeName: newName })
-    });
-    if (response.ok) {
-      await loadWeek();
-    } else {
-      const errorText = await response.text();
-      console.error('Failed to rename employee:', errorText);
-      alert('Could not rename employee. Please try again.');
-      render();
-    }
-  };
-  input.addEventListener('keydown', event => {
-    if (event.key === 'Enter') { event.preventDefault(); commit(); }
-    if (event.key === 'Escape') { event.preventDefault(); cancel(); }
-  });
-  input.addEventListener('blur', () => commit());
+function openEmployeeDialog(name) {
+  const form = document.querySelector('#employee-form');
+  form.reset();
+  form.originalName.value = name;
+  form.employeeName.value = name;
+  const match = state.employees.find(e => e.name === name);
+  form.employeeId.value = match && match.employeeId ? match.employeeId : '';
+  document.querySelector('#employee-dialog').showModal();
 }
+document.querySelector('#employee-form .close').addEventListener('click', () => document.querySelector('#employee-dialog').close());
+document.querySelector('#employee-form .dialog-actions [value="cancel"]').addEventListener('click', () => document.querySelector('#employee-dialog').close());
+document.querySelector('#employee-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const originalName = formData.get('originalName');
+  const response = await fetch(`/api/schedule/employees/${encodeURIComponent(originalName)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ employeeName: formData.get('employeeName'), employeeId: formData.get('employeeId') || null })
+  });
+  if (response.ok) {
+    document.querySelector('#employee-dialog').close();
+    await Promise.all([loadWeek(), loadEmployees()]);
+  } else {
+    let message = 'Could not update employee. Please try again.';
+    try { const body = await response.json(); if (body.message) message = body.message; } catch (ignored) {}
+    alert(message);
+  }
+});
 const DRAG_THRESHOLD_PX = 4;
 let dragState = null;
 let suppressNextClick = false;
 document.querySelector('#schedule-body').addEventListener('mousedown', event => {
+  if (state.role !== 'MANAGER') return;
   if (event.button !== 0) return;
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (!shiftElement) return;
@@ -269,4 +286,4 @@ document.querySelector('#credentials-form').addEventListener('submit', async eve
     alert(message);
   }
 });
-loadWeek();
+bootstrap();

@@ -4,8 +4,10 @@ import com.janitorial.schedule.model.ManagerAccount;
 import com.janitorial.schedule.model.ManagerAccountRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,11 +48,21 @@ public class AccountController {
         managerAccountRepository.save(account);
     }
 
+    @GetMapping("/me")
+    public MeResponse me(Authentication authentication) {
+        boolean isManager = authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_MANAGER"));
+        return new MeResponse(isManager ? "MANAGER" : "EMPLOYEE");
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", ex.getReason()));
     }
 
     public record CredentialsRequest(String currentPassword, String newUsername, String newPassword) {
+    }
+
+    public record MeResponse(String role) {
     }
 }

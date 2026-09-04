@@ -2,6 +2,7 @@ package com.janitorial.schedule.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
@@ -26,7 +27,12 @@ public class SecurityConfig {
         CsrfTokenRequestAttributeHandler csrfTokenRequestHandler = new CsrfTokenRequestAttributeHandler();
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/login.html", "/login", "/styles.css", "/error").permitAll()
+                        .requestMatchers("/login.html", "/employee-login.html", "/login", "/styles.css", "/error").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/schedule").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/schedule/**").hasRole("MANAGER")
+                        .requestMatchers("/api/employees/**").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/account/credentials").hasRole("MANAGER")
+                        .requestMatchers("/h2-console/**").hasRole("MANAGER")
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login.html")
