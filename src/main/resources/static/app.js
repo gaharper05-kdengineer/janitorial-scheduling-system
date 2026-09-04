@@ -237,6 +237,36 @@ document.querySelector('#shift-form').startTime.addEventListener('input', update
 document.querySelector('#shift-form').endTime.addEventListener('input', updateCalculatedHours);
 document.querySelector('#shift-form').lunchMinutes.addEventListener('change', updateCalculatedHours);
 document.querySelector('#shift-form .close').addEventListener('click', () => document.querySelector('#shift-dialog').close());
-document.querySelector('#shift-form [value="cancel"]').addEventListener('click', () => document.querySelector('#shift-dialog').close());
+document.querySelector('#shift-form .dialog-actions [value="cancel"]').addEventListener('click', () => document.querySelector('#shift-dialog').close());
 document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType') }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
+async function logoutAfterCredentialsChange() {
+  await fetch('/logout', { method: 'POST', headers: csrfHeaders() });
+  window.location.href = '/login.html?credentialsUpdated=1';
+}
+document.querySelector('#account-settings-button').addEventListener('click', () => {
+  document.querySelector('#credentials-form').reset();
+  document.querySelector('#credentials-dialog').showModal();
+});
+document.querySelector('#credentials-form .close').addEventListener('click', () => document.querySelector('#credentials-dialog').close());
+document.querySelector('#credentials-form .dialog-actions [value="cancel"]').addEventListener('click', () => document.querySelector('#credentials-dialog').close());
+document.querySelector('#credentials-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const newPassword = formData.get('newPassword');
+  if (newPassword !== formData.get('confirmPassword')) { alert('New password and confirmation do not match.'); return; }
+  const response = await fetch('/api/account/credentials', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ currentPassword: formData.get('currentPassword'), newUsername: formData.get('newUsername'), newPassword })
+  });
+  if (response.ok) {
+    alert('Login updated. Please sign in again with your new credentials.');
+    await logoutAfterCredentialsChange();
+  } else {
+    let message = 'Could not update credentials. Please check the form values and try again.';
+    try { const body = await response.json(); if (body.message) message = body.message; } catch (ignored) {}
+    alert(message);
+  }
+});
 loadWeek();

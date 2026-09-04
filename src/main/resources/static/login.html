@@ -32,6 +32,7 @@
       var message = document.getElementById('login-message');
       if (params.has('error')) { message.textContent = 'Invalid username or password.'; message.hidden = false; }
       else if (params.has('logout')) { message.textContent = 'You have been logged out.'; message.hidden = false; }
+      else if (params.has('credentialsUpdated')) { message.textContent = 'Your login was updated. Sign in with your new username and password.'; message.hidden = false; }
     })();
   </script>
 </body>

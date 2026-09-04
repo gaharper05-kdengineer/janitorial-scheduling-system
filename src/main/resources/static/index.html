@@ -13,7 +13,7 @@
   <main class="shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">C</span><span>CleanTrack</span></div>
-      <div class="top-actions"><span class="status-dot"></span><span>Operations desk</span><button class="avatar" id="logout-button" title="Log out" aria-label="Log out">KM</button></div>
+      <div class="top-actions"><span class="status-dot"></span><span>Operations desk</span><button class="avatar" id="account-settings-button" title="Account settings" aria-label="Account settings">&#9881;</button><button class="avatar" id="logout-button" title="Log out" aria-label="Log out">KM</button></div>
     </header>
 
     <section class="intro">
@@ -36,6 +36,7 @@
   </main>
 
   <dialog id="shift-dialog"><form id="shift-form"><input type="hidden" name="shiftId"><div class="dialog-heading"><div><p class="eyebrow">Schedule coverage</p><h2 id="dialog-title">Add employee shift</h2></div><button type="button" class="close" value="cancel" aria-label="Close">&times;</button></div><div class="form-grid"><label>Employee name<input name="employeeName" required placeholder="e.g. Jordan Lee"></label><label>Date<input name="shiftDate" type="date" required></label><label>Start time<input name="startTime" type="time" required></label><label>End time<input name="endTime" type="time" required></label><label>Lunch break<select name="lunchMinutes"><option value="0">None</option><option value="30">30 minutes</option><option value="60">1 hour</option></select></label><label>Calculated hours<input id="calculated-hours" type="text" value="Enter start and end time" readonly></label><label>Shift type<select name="shiftType"><option value="day">Day</option><option value="swing">Evening</option><option value="overnight">Overnight</option></select></label></div><div class="dialog-actions"><button type="button" class="button button-quiet" value="cancel">Cancel</button><button type="submit" class="button button-primary" value="default">Save shift</button></div></form></dialog>
+  <dialog id="credentials-dialog"><form id="credentials-form"><div class="dialog-heading"><div><p class="eyebrow">Account security</p><h2>Update login credentials</h2></div><button type="button" class="close" value="cancel" aria-label="Close">&times;</button></div><div class="form-grid"><label>Current password<input name="currentPassword" type="password" required autocomplete="current-password"></label><label>New username<input name="newUsername" required autocomplete="username"></label><label>New password<input name="newPassword" type="password" required autocomplete="new-password"></label><label>Confirm new password<input name="confirmPassword" type="password" required autocomplete="new-password"></label></div><div class="dialog-actions"><button type="button" class="button button-quiet" value="cancel">Cancel</button><button type="submit" class="button button-primary" value="default">Save changes</button></div></form></dialog>
   <script src="/app.js"></script>
 </body>
 </html>
