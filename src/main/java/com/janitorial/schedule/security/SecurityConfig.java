@@ -30,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers("/login.html", "/employee-login.html", "/login", "/styles.css", "/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/schedule").hasRole("MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/schedule/**").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/schedule/**").hasRole("MANAGER")
                         .requestMatchers("/api/employees/**").hasRole("MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/account/credentials").hasRole("MANAGER")
                         .requestMatchers("/h2-console/**").hasRole("MANAGER")

@@ -120,9 +120,9 @@ document.querySelector('#schedule-body').addEventListener('click', event => {
   if (state.role !== 'MANAGER') return;
   if (suppressNextClick) { suppressNextClick = false; return; }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
-  if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openEditShift(shift); return; }
+  if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openShiftMenu({ type: 'shift', shift }, event.clientX, event.clientY); return; }
   const emptyCell = event.target.closest('.shift-cell[data-employee-name]');
-  if (emptyCell) { openNewShift(emptyCell.dataset.employeeName, emptyCell.dataset.shiftDate); return; }
+  if (emptyCell) { openShiftMenu({ type: 'empty', employeeName: emptyCell.dataset.employeeName, shiftDate: emptyCell.dataset.shiftDate }, event.clientX, event.clientY); return; }
   const nameEl = event.target.closest('.employee-name');
   if (nameEl) openEmployeeDialog(nameEl.dataset.employeeName);
 });
@@ -133,13 +133,15 @@ document.querySelector('#schedule-body').addEventListener('keydown', event => {
   if (shiftElement) {
     event.preventDefault();
     const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId);
-    if (shift) openEditShift(shift);
+    const rect = shiftElement.getBoundingClientRect();
+    if (shift) openShiftMenu({ type: 'shift', shift }, rect.left, rect.bottom);
     return;
   }
   const emptyCell = event.target.closest('.shift-cell[data-employee-name]');
   if (emptyCell) {
     event.preventDefault();
-    openNewShift(emptyCell.dataset.employeeName, emptyCell.dataset.shiftDate);
+    const rect = emptyCell.getBoundingClientRect();
+    openShiftMenu({ type: 'empty', employeeName: emptyCell.dataset.employeeName, shiftDate: emptyCell.dataset.shiftDate }, rect.left, rect.bottom);
     return;
   }
   const nameEl = event.target.closest('.employee-name');
@@ -178,6 +180,158 @@ document.querySelector('#employee-form').addEventListener('submit', async event 
     alert(message);
   }
 });
+let menuContext = null;
+let copiedShift = null;
+let shiftMenuOutsideClickHandler = null;
+function openShiftMenu(context, x, y) {
+  menuContext = context;
+  const isShift = context.type === 'shift';
+  document.querySelector('#shift-menu-edit').hidden = !isShift;
+  document.querySelector('#shift-menu-copy').hidden = !isShift;
+  document.querySelector('#shift-menu-delete').hidden = !isShift;
+  document.querySelector('#shift-menu-add').hidden = isShift;
+  document.querySelector('#shift-menu-paste').hidden = !copiedShift;
+  const menu = document.querySelector('#shift-menu');
+  menu.hidden = false;
+  const left = Math.min(x, window.innerWidth - menu.offsetWidth - 8);
+  const top = Math.min(y, window.innerHeight - menu.offsetHeight - 8);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+  if (shiftMenuOutsideClickHandler) document.removeEventListener('click', shiftMenuOutsideClickHandler);
+  shiftMenuOutsideClickHandler = event => {
+    if (event.target.closest('#shift-menu')) return;
+    closeShiftMenu();
+  };
+  setTimeout(() => document.addEventListener('click', shiftMenuOutsideClickHandler), 0);
+  watchForScrollWhileMenuOpen();
+}
+function closeShiftMenu() {
+  document.querySelector('#shift-menu').hidden = true;
+  menuContext = null;
+  if (shiftMenuOutsideClickHandler) {
+    document.removeEventListener('click', shiftMenuOutsideClickHandler);
+    shiftMenuOutsideClickHandler = null;
+  }
+}
+async function pasteCopiedShift(context) {
+  if (!copiedShift || !context) return;
+  if (context.type === 'shift') {
+    const shift = context.shift;
+    const response = await fetch(`/api/schedule/${shift.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+      body: JSON.stringify({
+        employeeName: shift.employeeName,
+        shiftDate: shift.shiftDate,
+        startTime: copiedShift.startTime,
+        endTime: copiedShift.endTime,
+        lunchMinutes: copiedShift.lunchMinutes,
+        shiftType: copiedShift.shiftType
+      })
+    });
+    if (response.ok) {
+      await loadWeek();
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to paste shift:', errorText);
+      alert('Could not paste shift. Please try again.');
+    }
+    return;
+  }
+  const conflict = state.shifts.some(item => item.employeeName === context.employeeName && item.shiftDate === context.shiftDate);
+  if (conflict) { alert(`${context.employeeName} already has a shift on ${context.shiftDate}.`); return; }
+  const response = await fetch('/api/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({
+      employeeName: context.employeeName,
+      shiftDate: context.shiftDate,
+      startTime: copiedShift.startTime,
+      endTime: copiedShift.endTime,
+      lunchMinutes: copiedShift.lunchMinutes,
+      shiftType: copiedShift.shiftType
+    })
+  });
+  if (response.ok) {
+    await loadWeek();
+  } else {
+    const errorText = await response.text();
+    console.error('Failed to paste shift:', errorText);
+    alert('Could not paste shift. Please try again.');
+  }
+}
+function watchForScrollWhileMenuOpen() {
+  const menu = document.querySelector('#shift-menu');
+  const tableWrap = document.querySelector('.table-wrap');
+  const startWindowScroll = window.scrollY;
+  const startTableScroll = tableWrap ? tableWrap.scrollTop : 0;
+  function check() {
+    if (menu.hidden) return;
+    if (window.scrollY !== startWindowScroll || (tableWrap && tableWrap.scrollTop !== startTableScroll)) {
+      closeShiftMenu();
+      return;
+    }
+    requestAnimationFrame(check);
+  }
+  requestAnimationFrame(check);
+}
+document.querySelector('#shift-menu-edit').addEventListener('click', () => {
+  const context = menuContext;
+  closeShiftMenu();
+  if (context && context.type === 'shift') openEditShift(context.shift);
+});
+document.querySelector('#shift-menu-copy').addEventListener('click', () => {
+  const context = menuContext;
+  closeShiftMenu();
+  if (!context || context.type !== 'shift') return;
+  const shift = context.shift;
+  copiedShift = {
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    lunchMinutes: shift.lunchMinutes,
+    shiftType: shift.shiftType
+  };
+});
+document.querySelector('#shift-menu-add').addEventListener('click', () => {
+  const context = menuContext;
+  closeShiftMenu();
+  if (context && context.type === 'empty') openNewShift(context.employeeName, context.shiftDate);
+});
+document.querySelector('#shift-menu-paste').addEventListener('click', () => {
+  const context = menuContext;
+  closeShiftMenu();
+  pasteCopiedShift(context);
+});
+let shiftPendingDelete = null;
+document.querySelector('#shift-menu-delete').addEventListener('click', () => {
+  const context = menuContext;
+  closeShiftMenu();
+  if (!context || context.type !== 'shift') return;
+  const shift = context.shift;
+  shiftPendingDelete = shift;
+  document.querySelector('#delete-confirm-message').textContent =
+    `Delete ${shift.employeeName}'s shift on ${shift.shiftDate}?`;
+  document.querySelector('#delete-confirm-dialog').showModal();
+});
+document.querySelector('#delete-confirm-ok').addEventListener('click', async () => {
+  const shift = shiftPendingDelete;
+  document.querySelector('#delete-confirm-dialog').close();
+  if (!shift) return;
+  const response = await fetch(`/api/schedule/${shift.id}`, { method: 'DELETE', headers: csrfHeaders() });
+  if (response.ok) {
+    await loadWeek();
+  } else {
+    const errorText = await response.text();
+    console.error('Failed to delete shift:', errorText);
+    alert('Could not delete shift. Please try again.');
+  }
+});
+[document.querySelector('#delete-confirm-cancel'), document.querySelector('#delete-confirm-close')].forEach(button => {
+  button.addEventListener('click', () => document.querySelector('#delete-confirm-dialog').close());
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.querySelector('#shift-menu').hidden) closeShiftMenu();
+});
 const DRAG_THRESHOLD_PX = 4;
 let dragState = null;
 let suppressNextClick = false;
@@ -198,11 +352,12 @@ document.addEventListener('mousemove', event => {
     dragState.active = true;
     const ghost = document.createElement('div');
     ghost.className = 'shift-drag-ghost';
-    ghost.textContent = `${regularTime(dragState.shift.startTime)} - ${regularTime(dragState.shift.endTime)}`;
     document.body.appendChild(ghost);
     dragState.ghost = ghost;
     document.body.classList.add('dragging-active');
   }
+  dragState.duplicate = event.ctrlKey || event.metaKey;
+  dragState.ghost.textContent = `${regularTime(dragState.shift.startTime)} - ${regularTime(dragState.shift.endTime)}${dragState.duplicate ? ' (copy)' : ''}`;
   dragState.ghost.style.left = `${event.clientX}px`;
   dragState.ghost.style.top = `${event.clientY}px`;
   const hovered = document.elementFromPoint(event.clientX, event.clientY);
@@ -225,16 +380,18 @@ document.addEventListener('mouseup', async () => {
   const cell = finished.hoverCell;
   if (!cell) return;
   const shift = finished.shift;
+  const duplicate = finished.duplicate;
   const targetDate = cell.dataset.shiftDate;
   const targetEmployee = cell.closest('tr')?.dataset.employeeName;
-  if (!targetDate || targetEmployee !== shift.employeeName || targetDate === shift.shiftDate) return;
-  const conflict = state.shifts.some(item => item.employeeName === shift.employeeName && item.shiftDate === targetDate && String(item.id) !== finished.shiftId);
-  if (conflict) { alert(`${shift.employeeName} already has a shift on ${targetDate}.`); return; }
-  const response = await fetch(`/api/schedule/${finished.shiftId}`, {
-    method: 'PUT',
+  if (!targetDate || !targetEmployee) return;
+  if (!duplicate && targetEmployee === shift.employeeName && targetDate === shift.shiftDate) return;
+  const conflict = state.shifts.some(item => item.employeeName === targetEmployee && item.shiftDate === targetDate && (duplicate || String(item.id) !== finished.shiftId));
+  if (conflict) { alert(`${targetEmployee} already has a shift on ${targetDate}.`); return; }
+  const response = await fetch(duplicate ? '/api/schedule' : `/api/schedule/${finished.shiftId}`, {
+    method: duplicate ? 'POST' : 'PUT',
     headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
     body: JSON.stringify({
-      employeeName: shift.employeeName,
+      employeeName: targetEmployee,
       shiftDate: targetDate,
       startTime: shift.startTime,
       endTime: shift.endTime,
@@ -246,8 +403,8 @@ document.addEventListener('mouseup', async () => {
     await loadWeek();
   } else {
     const errorText = await response.text();
-    console.error('Failed to move shift:', errorText);
-    alert('Could not move shift. Please try again.');
+    console.error(`Failed to ${duplicate ? 'duplicate' : 'move'} shift:`, errorText);
+    alert(`Could not ${duplicate ? 'duplicate' : 'move'} shift. Please try again.`);
   }
 });
 document.querySelector('#shift-form').startTime.addEventListener('input', updateCalculatedHours);
