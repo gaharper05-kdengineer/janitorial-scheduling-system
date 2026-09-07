@@ -163,6 +163,12 @@ public class ScheduleController {
         employeeRepository.findByName(employeeName).ifPresent(employeeRepository::delete);
     }
 
+    @DeleteMapping("/employees/{employeeName}/history")
+    public void deleteEmployeeHistory(@PathVariable String employeeName) {
+        shiftRepository.deleteAll(shiftRepository.findByEmployeeName(employeeName));
+        employeeRepository.findByName(employeeName).ifPresent(employeeRepository::delete);
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", ex.getReason()));

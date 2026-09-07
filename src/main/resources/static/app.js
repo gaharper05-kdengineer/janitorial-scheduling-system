@@ -251,6 +251,21 @@ document.querySelector('#delete-employee').addEventListener('click', () => {
     }
   });
 });
+document.querySelector('#delete-employee-history').addEventListener('click', () => {
+  const name = document.querySelector('#employee-form').originalName.value;
+  if (!name) return;
+  document.querySelector('#employee-dialog').close();
+  confirmDelete('Remove from history', `Are you sure you want to remove ${name} from the entire history? This permanently deletes all of their shifts and cannot be undone.`, async () => {
+    const response = await fetch(`/api/schedule/employees/${encodeURIComponent(name)}/history`, { method: 'DELETE', headers: csrfHeaders() });
+    if (response.ok) {
+      await Promise.all([loadWeek(), loadEmployees()]);
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to remove employee history:', errorText);
+      alert('Could not remove employee history. Please try again.');
+    }
+  });
+});
 let menuContext = null;
 let copiedShift = null;
 let shiftMenuOutsideClickHandler = null;
