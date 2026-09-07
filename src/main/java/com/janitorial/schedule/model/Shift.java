@@ -89,17 +89,27 @@ public class Shift {
     }
 
     public static double calculateHours(String startTime, String endTime, int lunchMinutes) {
+        if (isBlank(startTime) || isBlank(endTime)) {
+            return 0;
+        }
         long minutes = shiftMinutes(startTime, endTime);
         long effectiveMinutes = minutes - effectiveLunchMinutes(minutes, lunchMinutes);
         return Math.max(0, effectiveMinutes) / 60.0;
     }
 
     private static int effectiveLunchMinutes(String startTime, String endTime, int lunchMinutes) {
+        if (isBlank(startTime) || isBlank(endTime)) {
+            return 0;
+        }
         return effectiveLunchMinutes(shiftMinutes(startTime, endTime), lunchMinutes);
     }
 
     private static int effectiveLunchMinutes(long shiftMinutes, int lunchMinutes) {
         return shiftMinutes > LUNCH_ELIGIBLE_MINUTES ? Math.max(0, lunchMinutes) : 0;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static long shiftMinutes(String startTime, String endTime) {
@@ -113,7 +123,7 @@ public class Shift {
     }
 
     private static LocalTime parseTime(String value) {
-        if (value == null || value.isBlank()) {
+        if (isBlank(value)) {
             throw new IllegalArgumentException("Start and end times are required");
         }
         String trimmed = value.trim();

@@ -65,7 +65,7 @@ function updateCalculatedHours() {
   const form = document.querySelector('#shift-form');
   const lunchMinutes = Number(form.lunchMinutes.value || 0);
   const hours = calculatedHours(form.startTime.value, form.endTime.value, lunchMinutes);
-  document.querySelector('#calculated-hours').value = hours === null ? 'Enter start and end time' : `${hours.toFixed(2)} hours`;
+  document.querySelector('#calculated-hours').value = hours === null ? 'No time set (optional)' : `${hours.toFixed(2)} hours`;
 }
 function renderHead() { document.querySelector('#schedule-head').innerHTML = `<tr><th>Employee</th>${days.map((day, index) => { const date = new Date(state.weekStart); date.setDate(date.getDate() + index); return `<th><span class="day-name">${day}</span><span class="day-date">${displayDate(date)}</span></th>`; }).join('')}<th>Total</th></tr>`; }
 function render() {
@@ -94,7 +94,8 @@ function render() {
       const dateIso = iso(date);
       const shift = employeeShifts.find(item => item.shiftDate === dateIso);
       const emptyAttrs = shift ? '' : ` data-employee-name="${escapeHtml(name)}" role="button" tabindex="0"`;
-      return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}</span><span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span>${shift.onCall ? '<span class="on-call-badge">On call</span>' : ''}</div>` : ''}</td>`;
+      const hasTime = Boolean(shift && shift.startTime && shift.endTime);
+      return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${hasTime ? `${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}` : 'Time TBD'}</span>${hasTime ? `<span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span>` : ''}${shift.onCall ? '<span class="on-call-badge">On call</span>' : ''}</div>` : ''}</td>`;
     }).join('');
     return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}" role="button" tabindex="0">${escapeHtml(name)}</span>${onCall ? '<span class="on-call-badge">On call</span>' : ''}</td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
   }).join('') : '<tr><td class="loading" colspan="9">No shifts scheduled for this week.</td></tr>';
