@@ -236,6 +236,21 @@ document.querySelector('#employee-form').addEventListener('submit', async event 
     alert(message);
   }
 });
+document.querySelector('#delete-employee').addEventListener('click', () => {
+  const name = document.querySelector('#employee-form').originalName.value;
+  if (!name) return;
+  document.querySelector('#employee-dialog').close();
+  confirmDelete('Delete employee', `Remove ${name} from the schedule? Their past shifts are kept, but they won't appear on future weeks.`, async () => {
+    const response = await fetch(`/api/schedule/employees/${encodeURIComponent(name)}`, { method: 'DELETE', headers: csrfHeaders() });
+    if (response.ok) {
+      await Promise.all([loadWeek(), loadEmployees()]);
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to delete employee:', errorText);
+      alert('Could not delete employee. Please try again.');
+    }
+  });
+});
 let menuContext = null;
 let copiedShift = null;
 let shiftMenuOutsideClickHandler = null;
@@ -361,29 +376,33 @@ document.querySelector('#shift-menu-paste').addEventListener('click', () => {
   closeShiftMenu();
   pasteCopiedShift(context);
 });
-let shiftPendingDelete = null;
+let pendingDeleteAction = null;
+function confirmDelete(title, message, action) {
+  pendingDeleteAction = action;
+  document.querySelector('#delete-confirm-title').textContent = title;
+  document.querySelector('#delete-confirm-message').textContent = message;
+  document.querySelector('#delete-confirm-dialog').showModal();
+}
 document.querySelector('#shift-menu-delete').addEventListener('click', () => {
   const context = menuContext;
   closeShiftMenu();
   if (!context || context.type !== 'shift') return;
   const shift = context.shift;
-  shiftPendingDelete = shift;
-  document.querySelector('#delete-confirm-message').textContent =
-    `Delete ${shift.employeeName}'s shift on ${shift.shiftDate}?`;
-  document.querySelector('#delete-confirm-dialog').showModal();
+  confirmDelete('Delete shift', `Delete ${shift.employeeName}'s shift on ${shift.shiftDate}?`, async () => {
+    const response = await fetch(`/api/schedule/${shift.id}`, { method: 'DELETE', headers: csrfHeaders() });
+    if (response.ok) {
+      await loadWeek();
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to delete shift:', errorText);
+      alert('Could not delete shift. Please try again.');
+    }
+  });
 });
 document.querySelector('#delete-confirm-ok').addEventListener('click', async () => {
-  const shift = shiftPendingDelete;
+  const action = pendingDeleteAction;
   document.querySelector('#delete-confirm-dialog').close();
-  if (!shift) return;
-  const response = await fetch(`/api/schedule/${shift.id}`, { method: 'DELETE', headers: csrfHeaders() });
-  if (response.ok) {
-    await loadWeek();
-  } else {
-    const errorText = await response.text();
-    console.error('Failed to delete shift:', errorText);
-    alert('Could not delete shift. Please try again.');
-  }
+  if (action) await action();
 });
 [document.querySelector('#delete-confirm-cancel'), document.querySelector('#delete-confirm-close')].forEach(button => {
   button.addEventListener('click', () => document.querySelector('#delete-confirm-dialog').close());

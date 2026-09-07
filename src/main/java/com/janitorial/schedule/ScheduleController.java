@@ -158,6 +158,11 @@ public class ScheduleController {
         return shiftRepository.saveAll(shifts);
     }
 
+    @DeleteMapping("/employees/{employeeName}")
+    public void deleteEmployee(@PathVariable String employeeName) {
+        employeeRepository.findByName(employeeName).ifPresent(employeeRepository::delete);
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", ex.getReason()));
