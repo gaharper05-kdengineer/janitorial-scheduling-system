@@ -78,13 +78,13 @@ function render() {
     const employeeShifts = state.shifts.filter(shift => shift.employeeName === name);
     const total = employeeShifts.reduce((sum, shift) => sum + Number(shift.hours), 0);
     const rosterMatch = state.employees.find(employee => employee.name === name);
-    const onCall = rosterMatch ? rosterMatch.onCall : employeeShifts.some(shift => shift.onCall);
+    const onCall = rosterMatch ? rosterMatch.onCall : employeeShifts.some(shift => shift.employeeOnCall);
     const cells = days.map((_, index) => {
       const date = new Date(state.weekStart); date.setDate(date.getDate() + index);
       const dateIso = iso(date);
       const shift = employeeShifts.find(item => item.shiftDate === dateIso);
       const emptyAttrs = shift ? '' : ` data-employee-name="${escapeHtml(name)}" role="button" tabindex="0"`;
-      return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}</span><span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span></div>` : ''}</td>`;
+      return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}</span><span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span>${shift.onCall ? '<span class="on-call-badge">On call</span>' : ''}</div>` : ''}</td>`;
     }).join('');
     return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}" role="button" tabindex="0">${escapeHtml(name)}</span>${onCall ? '<span class="on-call-badge">On call</span>' : ''}</td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
   }).join('') : '<tr><td class="loading" colspan="9">No shifts scheduled for this week.</td></tr>';
@@ -119,7 +119,7 @@ document.querySelector('#budget').addEventListener('input', render);
 document.querySelector('#previous-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() - 7); loadWeek(); });
 document.querySelector('#next-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() + 7); loadWeek(); });
 function openNewShift(employeeName = '', shiftDate = '') { const form = document.querySelector('#shift-form'); form.reset(); form.shiftId.value = ''; form.employeeName.value = employeeName; form.shiftDate.value = shiftDate; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
-function openEditShift(shift) { const form = document.querySelector('#shift-form'); form.shiftId.value = shift.id; form.employeeName.value = shift.employeeName; form.shiftDate.value = shift.shiftDate; form.startTime.value = to24HourTime(shift.startTime); form.endTime.value = to24HourTime(shift.endTime); form.lunchMinutes.value = String(shift.lunchMinutes || 0); form.shiftType.value = shift.shiftType; document.querySelector('#dialog-title').textContent = 'Edit employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
+function openEditShift(shift) { const form = document.querySelector('#shift-form'); form.shiftId.value = shift.id; form.employeeName.value = shift.employeeName; form.shiftDate.value = shift.shiftDate; form.startTime.value = to24HourTime(shift.startTime); form.endTime.value = to24HourTime(shift.endTime); form.lunchMinutes.value = String(shift.lunchMinutes || 0); form.shiftType.value = shift.shiftType; form.onCall.checked = Boolean(shift.onCall); document.querySelector('#dialog-title').textContent = 'Edit employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }
 document.querySelector('#open-shift').addEventListener('click', () => openNewShift());
 document.querySelector('#download-schedule').addEventListener('click', () => window.print());
 document.querySelector('#logout-button').addEventListener('click', logout);
@@ -234,7 +234,8 @@ async function pasteCopiedShift(context) {
         startTime: copiedShift.startTime,
         endTime: copiedShift.endTime,
         lunchMinutes: copiedShift.lunchMinutes,
-        shiftType: copiedShift.shiftType
+        shiftType: copiedShift.shiftType,
+        onCall: copiedShift.onCall
       })
     });
     if (response.ok) {
@@ -257,7 +258,8 @@ async function pasteCopiedShift(context) {
       startTime: copiedShift.startTime,
       endTime: copiedShift.endTime,
       lunchMinutes: copiedShift.lunchMinutes,
-      shiftType: copiedShift.shiftType
+      shiftType: copiedShift.shiftType,
+      onCall: copiedShift.onCall
     })
   });
   if (response.ok) {
@@ -297,7 +299,8 @@ document.querySelector('#shift-menu-copy').addEventListener('click', () => {
     startTime: shift.startTime,
     endTime: shift.endTime,
     lunchMinutes: shift.lunchMinutes,
-    shiftType: shift.shiftType
+    shiftType: shift.shiftType,
+    onCall: shift.onCall
   };
 });
 document.querySelector('#shift-menu-add').addEventListener('click', () => {
@@ -404,7 +407,8 @@ document.addEventListener('mouseup', async () => {
       startTime: shift.startTime,
       endTime: shift.endTime,
       lunchMinutes: shift.lunchMinutes,
-      shiftType: shift.shiftType
+      shiftType: shift.shiftType,
+      onCall: shift.onCall
     })
   });
   if (response.ok) {
@@ -420,7 +424,7 @@ document.querySelector('#shift-form').endTime.addEventListener('input', updateCa
 document.querySelector('#shift-form').lunchMinutes.addEventListener('change', updateCalculatedHours);
 document.querySelector('#shift-form .close').addEventListener('click', () => document.querySelector('#shift-dialog').close());
 document.querySelector('#shift-form .dialog-actions [value="cancel"]').addEventListener('click', () => document.querySelector('#shift-dialog').close());
-document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType') }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
+document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType'), onCall: formData.get('onCall') === 'on' }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
 async function logoutAfterCredentialsChange() {
   await fetch('/logout', { method: 'POST', headers: csrfHeaders() });
   window.location.href = '/login.html?credentialsUpdated=1';

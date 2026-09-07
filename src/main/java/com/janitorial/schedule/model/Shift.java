@@ -25,6 +25,7 @@ public class Shift {
     private int lunchMinutes;
     private double hours;
     private String shiftType;
+    private boolean onCall;
 
     protected Shift() {
     }
@@ -54,6 +55,12 @@ public class Shift {
         this(employeeName, shiftDate, startTime, endTime, 0, shiftType);
     }
 
+    public Shift(String employeeName, LocalDate shiftDate, String startTime, String endTime,
+                 int lunchMinutes, String shiftType, boolean onCall) {
+        this(employeeName, shiftDate, startTime, endTime, lunchMinutes, shiftType);
+        this.onCall = onCall;
+    }
+
     public void renameEmployee(String employeeName) {
         this.employeeName = employeeName;
     }
@@ -67,6 +74,12 @@ public class Shift {
         this.lunchMinutes = effectiveLunchMinutes(startTime, endTime, lunchMinutes);
         this.hours = calculateHours(startTime, endTime, lunchMinutes);
         this.shiftType = shiftType;
+    }
+
+    public void update(String employeeName, LocalDate shiftDate, String startTime, String endTime,
+                       int lunchMinutes, String shiftType, boolean onCall) {
+        update(employeeName, shiftDate, startTime, endTime, lunchMinutes, shiftType);
+        this.onCall = onCall;
     }
 
     private static final long LUNCH_ELIGIBLE_MINUTES = Duration.ofHours(6).toMinutes();
@@ -123,4 +136,5 @@ public class Shift {
     public int getLunchMinutes() { return lunchMinutes; }
     public double getHours() { return hours; }
     public String getShiftType() { return shiftType; }
+    public boolean isOnCall() { return onCall; }
 }

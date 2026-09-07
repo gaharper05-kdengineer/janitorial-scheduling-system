@@ -48,7 +48,7 @@ public class ScheduleController {
         return shifts.stream()
                 .map(shift -> new ShiftResponse(shift.getId(), shift.getEmployeeName(), shift.getShiftDate(),
                         shift.getStartTime(), shift.getEndTime(), shift.getLunchMinutes(), shift.getHours(),
-                        shift.getShiftType(), onCallByName.getOrDefault(shift.getEmployeeName(), false)))
+                        shift.getShiftType(), shift.isOnCall(), onCallByName.getOrDefault(shift.getEmployeeName(), false)))
                 .toList();
     }
 
@@ -56,9 +56,10 @@ public class ScheduleController {
     public Shift addShift(@RequestBody ShiftRequest request) {
         ensureEmployeeExists(request.employeeName());
         int lunchMinutes = request.lunchMinutes() == null ? 0 : request.lunchMinutes();
+        boolean onCall = request.onCall() != null && request.onCall();
         return shiftRepository.save(new Shift(
                 request.employeeName(), request.shiftDate(), request.startTime(), request.endTime(),
-                lunchMinutes, request.shiftType()));
+                lunchMinutes, request.shiftType(), onCall));
     }
 
     @PutMapping("/{id}")
@@ -66,8 +67,9 @@ public class ScheduleController {
         ensureEmployeeExists(request.employeeName());
         Shift shift = shiftRepository.findById(id).orElseThrow();
         int lunchMinutes = request.lunchMinutes() == null ? 0 : request.lunchMinutes();
+        boolean onCall = request.onCall() != null && request.onCall();
         shift.update(request.employeeName(), request.shiftDate(), request.startTime(), request.endTime(),
-                lunchMinutes, request.shiftType());
+                lunchMinutes, request.shiftType(), onCall);
         return shiftRepository.save(shift);
     }
 
@@ -122,13 +124,13 @@ public class ScheduleController {
     }
 
     public record ShiftRequest(String employeeName, LocalDate shiftDate, String startTime, String endTime,
-                               Integer lunchMinutes, String shiftType) {
+                               Integer lunchMinutes, String shiftType, Boolean onCall) {
     }
 
     public record EmployeeUpdateRequest(String employeeName, String employeeId, Boolean onCall) {
     }
 
     public record ShiftResponse(Long id, String employeeName, LocalDate shiftDate, String startTime, String endTime,
-                                int lunchMinutes, double hours, String shiftType, boolean onCall) {
+                                int lunchMinutes, double hours, String shiftType, boolean onCall, boolean employeeOnCall) {
     }
 }
