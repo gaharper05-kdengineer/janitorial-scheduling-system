@@ -72,10 +72,20 @@ function render() {
   renderHead();
   const rosterNames = state.employees.map(employee => employee.name);
   const shiftNames = state.shifts.map(shift => shift.employeeName);
-  const employees = [...new Set([...rosterNames, ...shiftNames])].sort();
+  const shiftTypeOrder = { day: 0, swing: 1, overnight: 2 };
+  const employees = [...new Set([...rosterNames, ...shiftNames])]
+    .map(name => {
+      const employeeShifts = state.shifts.filter(shift => shift.employeeName === name);
+      const counts = { day: 0, swing: 0, overnight: 0 };
+      employeeShifts.forEach(shift => { if (counts[shift.shiftType] !== undefined) counts[shift.shiftType]++; });
+      const predominantType = employeeShifts.length
+        ? Object.keys(counts).reduce((best, type) => counts[type] > counts[best] ? type : best, 'day')
+        : null;
+      return { name, employeeShifts, groupOrder: predominantType === null ? 3 : shiftTypeOrder[predominantType] };
+    })
+    .sort((a, b) => a.groupOrder - b.groupOrder || a.name.localeCompare(b.name));
   const body = document.querySelector('#schedule-body');
-  body.innerHTML = employees.length ? employees.map(name => {
-    const employeeShifts = state.shifts.filter(shift => shift.employeeName === name);
+  body.innerHTML = employees.length ? employees.map(({ name, employeeShifts }) => {
     const total = employeeShifts.reduce((sum, shift) => sum + Number(shift.hours), 0);
     const rosterMatch = state.employees.find(employee => employee.name === name);
     const onCall = rosterMatch ? rosterMatch.onCall : employeeShifts.some(shift => shift.employeeOnCall);
