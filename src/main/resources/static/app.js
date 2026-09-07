@@ -112,9 +112,16 @@ async function loadWeek() {
   const response = await fetch(`/api/schedule?weekStart=${iso(state.weekStart)}`);
   state.shifts = response.ok ? await response.json() : [];
   if (state.role === 'MANAGER') await loadEmployees();
+  await loadBudget();
   render();
 }
 async function loadEmployees() { const response = await fetch('/api/employees'); state.employees = response.ok ? await response.json() : []; }
+async function loadBudget() {
+  const response = await fetch(`/api/schedule/budget?weekStart=${iso(state.weekStart)}`);
+  const body = response.ok ? await response.json() : { hours: 416 };
+  document.querySelector('#budget').value = body.hours;
+  document.querySelector('#budget-note').textContent = 'Budget saved for this week';
+}
 async function loadRole() {
   const response = await fetch('/api/account/me');
   const body = response.ok ? await response.json() : { role: 'EMPLOYEE' };
@@ -125,7 +132,24 @@ async function bootstrap() {
   await loadRole();
   await loadWeek();
 }
-document.querySelector('#budget').addEventListener('input', render);
+document.querySelector('#budget').addEventListener('input', () => {
+  document.querySelector('#budget-note').textContent = 'Unsaved changes — click Save';
+  render();
+});
+document.querySelector('#save-budget').addEventListener('click', async () => {
+  const hours = Number(document.querySelector('#budget').value) || 0;
+  const response = await fetch('/api/schedule/budget', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ weekStart: iso(state.weekStart), hours })
+  });
+  if (response.ok) {
+    document.querySelector('#budget-note').textContent = 'Budget saved for this week';
+  } else {
+    console.error('Failed to save budget:', await response.text());
+    alert('Could not save budget. Please try again.');
+  }
+});
 document.querySelector('#previous-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() - 7); loadWeek(); });
 document.querySelector('#next-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() + 7); loadWeek(); });
 function openNewShift(employeeName = '', shiftDate = '') { const form = document.querySelector('#shift-form'); form.reset(); form.shiftId.value = ''; form.employeeName.value = employeeName; form.shiftDate.value = shiftDate; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); document.querySelector('#shift-dialog').showModal(); }

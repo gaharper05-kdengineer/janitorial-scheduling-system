@@ -25,7 +25,7 @@
       <div class="metric"><span class="metric-label">Scheduled hours</span><strong id="scheduled-hours">0.00</strong><span class="metric-note">Across all employees</span></div>
       <div class="metric"><span class="metric-label">Active employees</span><strong id="employee-count">0</strong><span class="metric-note">Working this week</span></div>
       <div class="metric"><span class="metric-label">Budget variance</span><strong id="variance">0.00 hrs</strong><span class="metric-note">Against weekly target</span></div>
-      <label class="budget-card"><span class="metric-label">Weekly hour budget</span><input id="budget" type="number" min="0" step="0.5" value="416"><span class="metric-note">Update to recalculate variance</span></label>
+      <div class="budget-card"><label for="budget" class="metric-label">Weekly hour budget</label><div class="budget-edit"><input id="budget" type="number" min="0" step="0.5" value="416"><button type="button" class="button button-quiet" id="save-budget">Save</button></div><span class="metric-note" id="budget-note">Set the budget for this week</span></div>
     </section>
 
     <section class="schedule-panel">

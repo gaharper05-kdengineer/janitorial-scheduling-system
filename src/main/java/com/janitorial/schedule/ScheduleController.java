@@ -4,6 +4,8 @@ import com.janitorial.schedule.model.Employee;
 import com.janitorial.schedule.model.EmployeeRepository;
 import com.janitorial.schedule.model.Shift;
 import com.janitorial.schedule.model.ShiftRepository;
+import com.janitorial.schedule.model.WeeklyBudget;
+import com.janitorial.schedule.model.WeeklyBudgetRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,14 +31,18 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/schedule")
 public class ScheduleController {
+    private static final double DEFAULT_BUDGET_HOURS = 416;
+
     private final ShiftRepository shiftRepository;
     private final EmployeeRepository employeeRepository;
+    private final WeeklyBudgetRepository weeklyBudgetRepository;
     private final PasswordEncoder passwordEncoder;
 
     public ScheduleController(ShiftRepository shiftRepository, EmployeeRepository employeeRepository,
-                               PasswordEncoder passwordEncoder) {
+                               WeeklyBudgetRepository weeklyBudgetRepository, PasswordEncoder passwordEncoder) {
         this.shiftRepository = shiftRepository;
         this.employeeRepository = employeeRepository;
+        this.weeklyBudgetRepository = weeklyBudgetRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -51,6 +57,26 @@ public class ScheduleController {
                         shift.getStartTime(), shift.getEndTime(), shift.getLunchMinutes(), shift.getHours(),
                         shift.getShiftType(), shift.isOnCall(), onCallByName.getOrDefault(shift.getEmployeeName(), false)))
                 .toList();
+    }
+
+    @GetMapping("/budget")
+    public BudgetResponse getBudget(@RequestParam LocalDate weekStart) {
+        double hours = weeklyBudgetRepository.findByWeekStart(weekStart)
+                .map(WeeklyBudget::getHours)
+                .orElse(DEFAULT_BUDGET_HOURS);
+        return new BudgetResponse(hours);
+    }
+
+    @PutMapping("/budget")
+    public BudgetResponse saveBudget(@RequestBody BudgetRequest request) {
+        WeeklyBudget budget = weeklyBudgetRepository.findByWeekStart(request.weekStart()).orElse(null);
+        if (budget != null) {
+            budget.update(request.hours());
+        } else {
+            budget = new WeeklyBudget(request.weekStart(), request.hours());
+        }
+        weeklyBudgetRepository.save(budget);
+        return new BudgetResponse(budget.getHours());
     }
 
     @PostMapping
@@ -146,5 +172,11 @@ public class ScheduleController {
 
     public record ShiftResponse(Long id, String employeeName, LocalDate shiftDate, String startTime, String endTime,
                                 int lunchMinutes, double hours, String shiftType, boolean onCall, boolean employeeOnCall) {
+    }
+
+    public record BudgetRequest(LocalDate weekStart, double hours) {
+    }
+
+    public record BudgetResponse(double hours) {
     }
 }
