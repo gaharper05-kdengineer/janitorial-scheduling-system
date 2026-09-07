@@ -4,6 +4,7 @@ import com.janitorial.schedule.model.Employee;
 import com.janitorial.schedule.model.EmployeeRepository;
 import com.janitorial.schedule.model.Shift;
 import com.janitorial.schedule.model.ShiftRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -75,7 +76,11 @@ public class ScheduleController {
 
     private void ensureEmployeeExists(String employeeName) {
         if (employeeRepository.findByName(employeeName).isEmpty()) {
-            employeeRepository.save(new Employee(employeeName, null, null));
+            try {
+                employeeRepository.saveAndFlush(new Employee(employeeName, null, null));
+            } catch (DataIntegrityViolationException alreadyCreatedConcurrently) {
+                // another request created this employee first; nothing left to do
+            }
         }
     }
 
@@ -95,6 +100,15 @@ public class ScheduleController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Employee ID must be exactly 5 digits");
         }
         Employee employee = employeeRepository.findByName(employeeName).orElse(null);
+        if (!newName.equals(employeeName)) {
+            Employee currentEmployee = employee;
+            employeeRepository.findByName(newName).ifPresent(existing -> {
+                if (currentEmployee == null || !existing.getId().equals(currentEmployee.getId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "An employee named " + newName + " already exists");
+                }
+            });
+        }
         if (!employeeId.isEmpty()) {
             Employee currentEmployee = employee;
             employeeRepository.findByEmployeeId(employeeId).ifPresent(existing -> {
