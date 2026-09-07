@@ -19,10 +19,10 @@ public class EmployeeController {
     @GetMapping
     public List<EmployeeSummary> listEmployees() {
         return employeeRepository.findAll().stream()
-                .map(employee -> new EmployeeSummary(employee.getName(), employee.getEmployeeId()))
+                .map(employee -> new EmployeeSummary(employee.getName(), employee.getEmployeeId(), employee.isOnCall()))
                 .toList();
     }
 
-    public record EmployeeSummary(String name, String employeeId) {
+    public record EmployeeSummary(String name, String employeeId, boolean onCall) {
     }
 }

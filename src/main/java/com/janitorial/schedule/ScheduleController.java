@@ -23,6 +23,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -39,13 +40,21 @@ public class ScheduleController {
     }
 
     @GetMapping
-    public List<Shift> getWeek(@RequestParam(required = false) LocalDate weekStart) {
+    public List<ShiftResponse> getWeek(@RequestParam(required = false) LocalDate weekStart) {
         LocalDate monday = weekStart == null ? LocalDate.now().with(DayOfWeek.MONDAY) : weekStart;
-        return shiftRepository.findByShiftDateBetweenOrderByEmployeeNameAscShiftDateAsc(monday, monday.plusDays(6));
+        List<Shift> shifts = shiftRepository.findByShiftDateBetweenOrderByEmployeeNameAscShiftDateAsc(monday, monday.plusDays(6));
+        Map<String, Boolean> onCallByName = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(Employee::getName, Employee::isOnCall, (a, b) -> a));
+        return shifts.stream()
+                .map(shift -> new ShiftResponse(shift.getId(), shift.getEmployeeName(), shift.getShiftDate(),
+                        shift.getStartTime(), shift.getEndTime(), shift.getLunchMinutes(), shift.getHours(),
+                        shift.getShiftType(), onCallByName.getOrDefault(shift.getEmployeeName(), false)))
+                .toList();
     }
 
     @PostMapping
     public Shift addShift(@RequestBody ShiftRequest request) {
+        ensureEmployeeExists(request.employeeName());
         int lunchMinutes = request.lunchMinutes() == null ? 0 : request.lunchMinutes();
         return shiftRepository.save(new Shift(
                 request.employeeName(), request.shiftDate(), request.startTime(), request.endTime(),
@@ -54,11 +63,18 @@ public class ScheduleController {
 
     @PutMapping("/{id}")
     public Shift updateShift(@PathVariable Long id, @RequestBody ShiftRequest request) {
+        ensureEmployeeExists(request.employeeName());
         Shift shift = shiftRepository.findById(id).orElseThrow();
         int lunchMinutes = request.lunchMinutes() == null ? 0 : request.lunchMinutes();
         shift.update(request.employeeName(), request.shiftDate(), request.startTime(), request.endTime(),
                 lunchMinutes, request.shiftType());
         return shiftRepository.save(shift);
+    }
+
+    private void ensureEmployeeExists(String employeeName) {
+        if (employeeRepository.findByName(employeeName).isEmpty()) {
+            employeeRepository.save(new Employee(employeeName, null, null));
+        }
     }
 
     @DeleteMapping("/{id}")
@@ -88,11 +104,12 @@ public class ScheduleController {
         }
         String newEmployeeId = employeeId.isEmpty() ? null : employeeId;
         String encodedPassword = employeeId.isEmpty() ? null : passwordEncoder.encode(employeeId);
+        boolean onCall = request.onCall() != null && request.onCall();
         if (employee != null) {
-            employee.update(newName, newEmployeeId, encodedPassword);
+            employee.update(newName, newEmployeeId, encodedPassword, onCall);
             employeeRepository.save(employee);
-        } else if (newEmployeeId != null) {
-            employeeRepository.save(new Employee(newName, newEmployeeId, encodedPassword));
+        } else if (newEmployeeId != null || onCall) {
+            employeeRepository.save(new Employee(newName, newEmployeeId, encodedPassword, onCall));
         }
         List<Shift> shifts = shiftRepository.findByEmployeeName(employeeName);
         shifts.forEach(shift -> shift.renameEmployee(newName));
@@ -108,6 +125,10 @@ public class ScheduleController {
                                Integer lunchMinutes, String shiftType) {
     }
 
-    public record EmployeeUpdateRequest(String employeeName, String employeeId) {
+    public record EmployeeUpdateRequest(String employeeName, String employeeId, Boolean onCall) {
+    }
+
+    public record ShiftResponse(Long id, String employeeName, LocalDate shiftDate, String startTime, String endTime,
+                                int lunchMinutes, double hours, String shiftType, boolean onCall) {
     }
 }

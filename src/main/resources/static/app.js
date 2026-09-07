@@ -70,11 +70,15 @@ function updateCalculatedHours() {
 function renderHead() { document.querySelector('#schedule-head').innerHTML = `<tr><th>Employee</th>${days.map((day, index) => { const date = new Date(state.weekStart); date.setDate(date.getDate() + index); return `<th><span class="day-name">${day}</span><span class="day-date">${displayDate(date)}</span></th>`; }).join('')}<th>Total</th></tr>`; }
 function render() {
   renderHead();
-  const employees = [...new Set(state.shifts.map(shift => shift.employeeName))].sort();
+  const rosterNames = state.employees.map(employee => employee.name);
+  const shiftNames = state.shifts.map(shift => shift.employeeName);
+  const employees = [...new Set([...rosterNames, ...shiftNames])].sort();
   const body = document.querySelector('#schedule-body');
   body.innerHTML = employees.length ? employees.map(name => {
     const employeeShifts = state.shifts.filter(shift => shift.employeeName === name);
     const total = employeeShifts.reduce((sum, shift) => sum + Number(shift.hours), 0);
+    const rosterMatch = state.employees.find(employee => employee.name === name);
+    const onCall = rosterMatch ? rosterMatch.onCall : employeeShifts.some(shift => shift.onCall);
     const cells = days.map((_, index) => {
       const date = new Date(state.weekStart); date.setDate(date.getDate() + index);
       const dateIso = iso(date);
@@ -82,7 +86,7 @@ function render() {
       const emptyAttrs = shift ? '' : ` data-employee-name="${escapeHtml(name)}" role="button" tabindex="0"`;
       return `<td class="shift-cell" data-shift-date="${dateIso}"${emptyAttrs}>${shift ? `<div class="shift ${shift.shiftType}" data-shift-id="${shift.id}" role="button" tabindex="0"><span class="shift-time">${regularTime(shift.startTime)} - ${regularTime(shift.endTime)}</span><span class="shift-hours">${Number(shift.hours).toFixed(2)} hrs</span></div>` : ''}</td>`;
     }).join('');
-    return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}" role="button" tabindex="0">${escapeHtml(name)}</span></td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
+    return `<tr data-employee-name="${escapeHtml(name)}"><td class="employee"><span class="employee-name" data-employee-name="${escapeHtml(name)}" role="button" tabindex="0">${escapeHtml(name)}</span>${onCall ? '<span class="on-call-badge">On call</span>' : ''}</td>${cells}<td class="total">${total.toFixed(2)}</td></tr>`;
   }).join('') : '<tr><td class="loading" colspan="9">No shifts scheduled for this week.</td></tr>';
   const totalHours = state.shifts.reduce((sum, shift) => sum + Number(shift.hours), 0);
   const budget = Number(document.querySelector('#budget').value) || 0;
@@ -94,7 +98,12 @@ function render() {
   const end = new Date(state.weekStart); end.setDate(end.getDate() + 6);
   document.querySelector('#date-range').textContent = `${displayDate(state.weekStart)} - ${displayDate(end)}, ${end.getFullYear()}`;
 }
-async function loadWeek() { const response = await fetch(`/api/schedule?weekStart=${iso(state.weekStart)}`); state.shifts = response.ok ? await response.json() : []; render(); }
+async function loadWeek() {
+  const response = await fetch(`/api/schedule?weekStart=${iso(state.weekStart)}`);
+  state.shifts = response.ok ? await response.json() : [];
+  if (state.role === 'MANAGER') await loadEmployees();
+  render();
+}
 async function loadEmployees() { const response = await fetch('/api/employees'); state.employees = response.ok ? await response.json() : []; }
 async function loadRole() {
   const response = await fetch('/api/account/me');
@@ -104,9 +113,7 @@ async function loadRole() {
 }
 async function bootstrap() {
   await loadRole();
-  const tasks = [loadWeek()];
-  if (state.role === 'MANAGER') tasks.push(loadEmployees());
-  await Promise.all(tasks);
+  await loadWeek();
 }
 document.querySelector('#budget').addEventListener('input', render);
 document.querySelector('#previous-week').addEventListener('click', () => { state.weekStart.setDate(state.weekStart.getDate() - 7); loadWeek(); });
@@ -157,6 +164,7 @@ function openEmployeeDialog(name) {
   form.employeeName.value = name;
   const match = state.employees.find(e => e.name === name);
   form.employeeId.value = match && match.employeeId ? match.employeeId : '';
+  form.onCall.checked = Boolean(match && match.onCall);
   document.querySelector('#employee-dialog').showModal();
 }
 document.querySelector('#employee-form .close').addEventListener('click', () => document.querySelector('#employee-dialog').close());
@@ -169,7 +177,7 @@ document.querySelector('#employee-form').addEventListener('submit', async event 
   const response = await fetch(`/api/schedule/employees/${encodeURIComponent(originalName)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-    body: JSON.stringify({ employeeName: formData.get('employeeName'), employeeId: formData.get('employeeId') || null })
+    body: JSON.stringify({ employeeName: formData.get('employeeName'), employeeId: formData.get('employeeId') || null, onCall: formData.get('onCall') === 'on' })
   });
   if (response.ok) {
     document.querySelector('#employee-dialog').close();

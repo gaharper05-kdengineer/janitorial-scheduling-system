@@ -17,24 +17,33 @@ public class Employee {
     @Column(name = "employee_id", unique = true)
     private String employeeId;
     private String password;
+    @Column(name = "on_call", nullable = false)
+    private boolean onCall;
 
     protected Employee() {
     }
 
     public Employee(String name, String employeeId, String password) {
-        this.name = name;
-        this.employeeId = employeeId;
-        this.password = password;
+        this(name, employeeId, password, false);
     }
 
-    public void update(String name, String employeeId, String password) {
+    public Employee(String name, String employeeId, String password, boolean onCall) {
         this.name = name;
         this.employeeId = employeeId;
         this.password = password;
+        this.onCall = onCall;
+    }
+
+    public void update(String name, String employeeId, String password, boolean onCall) {
+        this.name = name;
+        this.employeeId = employeeId;
+        this.password = password;
+        this.onCall = onCall;
     }
 
     public Long getId() { return id; }
     public String getName() { return name; }
     public String getEmployeeId() { return employeeId; }
     public String getPassword() { return password; }
+    public boolean isOnCall() { return onCall; }
 }
