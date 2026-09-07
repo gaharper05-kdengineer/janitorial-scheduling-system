@@ -158,6 +158,19 @@ function openEditShift(shift) { const form = document.querySelector('#shift-form
 document.querySelector('#open-shift').addEventListener('click', () => openNewShift());
 document.querySelector('#download-schedule').addEventListener('click', () => window.print());
 document.querySelector('#logout-button').addEventListener('click', logout);
+document.querySelector('#account-menu-button').addEventListener('click', event => {
+  event.stopPropagation();
+  const menu = document.querySelector('#account-menu');
+  menu.hidden = !menu.hidden;
+});
+document.addEventListener('click', event => {
+  const menu = document.querySelector('#account-menu');
+  if (!menu.hidden && !event.target.closest('.account-menu-wrap')) menu.hidden = true;
+});
+document.addEventListener('keydown', event => {
+  const menu = document.querySelector('#account-menu');
+  if (event.key === 'Escape' && !menu.hidden) menu.hidden = true;
+});
 document.querySelector('#schedule-body').addEventListener('click', event => {
   if (state.role !== 'MANAGER') return;
   if (suppressNextClick) { suppressNextClick = false; return; }
