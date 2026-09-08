@@ -4,7 +4,7 @@ CleanTrack is a Spring Boot weekly scheduling MVP for janitorial operations. It 
 
 ## Project Overview
 
-CleanTrack is a Spring Boot weekly scheduling MVP for janitorial operations. It provides a schedule grid, shift entry, employee totals, daily coverage, a weekly hour budget, and automatic variance calculations.
+CleanTrack gives managers a schedule grid for planning shifts and gives employees a read-only view of that same schedule, accessible with just a 5-digit employee ID.
 
 ## Problem
 
@@ -20,9 +20,10 @@ CleanTrack was developed to simplify this process through a web-based scheduling
 - Employee shift entry
 - Automatic employee hour totals
 - Daily staffing coverage
-- Weekly hour budget tracking
+- Weekly hour budget tracking, saved per week
 - Automatic variance calculations
 - Manager login
+- Employee login with a 5-digit ID, view-only access to the schedule
 - Persistent database support
 
 ## Technologies Used
@@ -54,11 +55,11 @@ CleanTrack was developed to simplify this process through a web-based scheduling
 
 ## Application Architecture
 
-## Application Architecture
-
 CleanTrack follows a layered Spring Boot architecture.
 
-![CleanTrack Architecture](docs/architecture/cleantrack-architecture.png)
+Managers and employees interact with the application through a web browser. Requests are handled by the Spring Boot application deployed as a Render Web Service. Controllers call Spring Data JPA repositories directly, which provide database access to PostgreSQL hosted on Render.
+
+![CleanTrack Architecture](./docs/architecture/cleantrack-architecture.png)
 
 ## Run Locally
 
@@ -68,35 +69,34 @@ CleanTrack follows a layered Spring Boot architecture.
 
 The default profile uses an in-memory H2 database so the demo works immediately.
 
-For production, CleanTrack uses PostgreSQL. Database connection settings are supplied through environment variables rather than hard-coded credentials in `application.properties`.
+For production, CleanTrack uses PostgreSQL. Database connection settings are supplied through environment variables rather than hard-coded credentials in `application.properties`, and the `prod` Spring profile must be active.
 
 Example:
 
 ```properties
-spring.datasource.url=${DATABASE_URL}
+spring.datasource.url=jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
 spring.datasource.username=${DB_USERNAME}
 spring.datasource.password=${DB_PASSWORD}
-spring.jpa.hibernate.ddl-auto=update
+spring.jpa.hibernate.ddl-auto=validate
+spring.flyway.enabled=true
 ```
 
-## Manager Login
+Schema changes are managed through Flyway migrations in `src/main/resources/db/migration`, not by Hibernate auto-generating the schema.
 
-The application requires a manager login.
+## Login
 
-For local development, the demo credentials are:
+CleanTrack has two ways to sign in:
 
-```text
-Username: manager
-Password: changeme123
-```
+- **Manager login** (`/login.html`) — username and password, full read/write access to the schedule.
+- **Employee login** (`/employee-login.html`) — a 5-digit employee ID, no separate password, view-only access to the schedule. A manager assigns each employee their ID from the schedule page.
+
+For local development, manager credentials are configured through the development application properties or environment variables. These local credentials are for development only.
 
 The local login page is:
 
 ```text
 http://localhost:8080/login.html
 ```
-
-These credentials are for local development only.
 
 In production on Render, manager credentials are supplied through environment variables:
 
@@ -115,17 +115,19 @@ CleanTrack/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── com/...
-│   │   │       ├── controller/
-│   │   │       ├── service/
-│   │   │       ├── repository/
-│   │   │       ├── model/
-│   │   │       └── App.java
+│   │   │   └── com/janitorial/schedule/
+│   │   │       ├── model/            # JPA entities and repositories
+│   │   │       ├── security/         # Spring Security config, user details, CSRF
+│   │   │       ├── ScheduleController.java
+│   │   │       ├── EmployeeController.java
+│   │   │       ├── AccountController.java
+│   │   │       └── ScheduleApplication.java
 │   │   │
 │   │   └── resources/
-│   │       ├── static/
-│   │       ├── templates/
+│   │       ├── static/               # index.html, login.html, app.js, styles.css
+│   │       ├── db/migration/         # Flyway schema migrations
 │   │       ├── application.properties
+│   │       ├── application-prod.properties
 │   │       └── data.sql
 │   │
 │   └── test/
@@ -160,12 +162,17 @@ Sensitive information is supplied through environment variables instead of being
 Examples include:
 
 ```text
-DATABASE_URL
+SPRING_PROFILES_ACTIVE=prod
+DB_HOST
+DB_PORT
+DB_NAME
 DB_USERNAME
 DB_PASSWORD
 MANAGER_USERNAME
 MANAGER_PASSWORD
 ```
+
+`SPRING_PROFILES_ACTIVE` must be set to `prod` on the deployed service — without it, the app falls back to its default H2 configuration instead of connecting to PostgreSQL.
 
 Database passwords and production manager credentials should never be committed to GitHub.
 
@@ -196,8 +203,6 @@ Render PostgreSQL
 Future versions of CleanTrack may include:
 
 - Multiple manager accounts
-- Employee accounts
-- Role-based access control
 - Employee availability
 - Schedule requests
 - Email notifications
