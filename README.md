@@ -44,6 +44,16 @@ CleanTrack was developed to simplify this process through a web-based scheduling
 - H2 for local demonstration
 - PostgreSQL for production deployment
 
+CleanTrack uses H2 for local development and PostgreSQL for the production deployment on Render.
+
+The current persistence model includes employees, shifts, manager accounts, and weekly labor-hour budgets.
+
+## Database Design
+
+The following ERD represents the current CleanTrack database model.
+
+![CleanTrack ERD](./docs/database/cleantrack-erd.drawio.png)
+
 ### Development and Deployment
 
 - Visual Studio Code
