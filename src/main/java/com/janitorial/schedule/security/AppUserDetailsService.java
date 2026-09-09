@@ -25,7 +25,7 @@ public class AppUserDetailsService implements UserDetailsService {
                 .map(account -> User.builder()
                         .username(account.getUsername())
                         .password(account.getPassword())
-                        .roles("MANAGER")
+                        .roles(account.getRole())
                         .build())
                 .or(() -> employeeRepository.findByEmployeeId(username)
                         .map(employee -> User.builder()

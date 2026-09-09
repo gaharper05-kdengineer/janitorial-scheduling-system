@@ -50,9 +50,13 @@ public class AccountController {
 
     @GetMapping("/me")
     public MeResponse me(Authentication authentication) {
-        boolean isManager = authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_MANAGER"));
-        return new MeResponse(isManager ? "MANAGER" : "EMPLOYEE");
+        java.util.Set<String> authorities = authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .collect(java.util.stream.Collectors.toSet());
+        String role = authorities.contains("ROLE_ADMIN") ? "ADMIN"
+                : authorities.contains("ROLE_MANAGER") ? "MANAGER"
+                : "EMPLOYEE";
+        return new MeResponse(role);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

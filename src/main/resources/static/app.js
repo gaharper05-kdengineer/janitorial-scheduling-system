@@ -6,7 +6,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
   });
   document.title = document.title.replace('COSM', 'DEMO MODE');
 }
-const state = { weekStart: monday(new Date()), shifts: [], employees: [], role: 'EMPLOYEE' };
+const state = { weekStart: monday(new Date()), shifts: [], employees: [], role: 'EMPLOYEE', canManage: false };
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 function monday(date) { const result = new Date(date); const day = result.getDay(); result.setDate(result.getDate() - (day === 0 ? 6 : day - 1)); result.setHours(0, 0, 0, 0); return result; }
@@ -120,7 +120,7 @@ function render() {
 async function loadWeek() {
   const response = await fetch(`/api/schedule?weekStart=${iso(state.weekStart)}`);
   state.shifts = response.ok ? await response.json() : [];
-  if (state.role === 'MANAGER') await loadEmployees();
+  if (state.canManage) await loadEmployees();
   await loadBudget();
   render();
 }
@@ -135,7 +135,9 @@ async function loadRole() {
   const response = await fetch('/api/account/me');
   const body = response.ok ? await response.json() : { role: 'EMPLOYEE' };
   state.role = body.role;
-  if (state.role !== 'MANAGER') document.body.classList.add('view-only');
+  state.canManage = state.role === 'MANAGER' || state.role === 'ADMIN';
+  if (!state.canManage) document.body.classList.add('view-only');
+  document.body.classList.toggle('is-admin', state.role === 'ADMIN');
 }
 async function bootstrap() {
   await loadRole();
@@ -179,8 +181,58 @@ document.addEventListener('keydown', event => {
   const menu = document.querySelector('#account-menu');
   if (event.key === 'Escape' && !menu.hidden) menu.hidden = true;
 });
+document.querySelector('#manage-managers-button').addEventListener('click', () => {
+  document.querySelector('#account-menu').hidden = true;
+  loadManagerList();
+  document.querySelector('#admin-dialog').showModal();
+});
+document.querySelector('#admin-dialog-close').addEventListener('click', () => document.querySelector('#admin-dialog').close());
+async function loadManagerList() {
+  const list = document.querySelector('#manager-list');
+  const response = await fetch('/api/admin/managers');
+  const managers = response.ok ? await response.json() : [];
+  list.innerHTML = managers.map(manager => `<div class="manager-row" data-id="${manager.id}"><span class="manager-username">${escapeHtml(manager.username)}</span><input type="password" class="reset-password-input" placeholder="New password"><button type="button" class="button button-quiet reset-password-btn" data-id="${manager.id}">Reset password</button></div>`).join('') || '<p class="metric-note">No manager accounts yet.</p>';
+}
+document.querySelector('#manager-list').addEventListener('click', async event => {
+  const button = event.target.closest('.reset-password-btn');
+  if (!button) return;
+  const row = button.closest('.manager-row');
+  const newPassword = row.querySelector('.reset-password-input').value;
+  if (!newPassword) { alert('Enter a new password first.'); return; }
+  const response = await fetch(`/api/admin/managers/${button.dataset.id}/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ newPassword })
+  });
+  if (response.ok) {
+    row.querySelector('.reset-password-input').value = '';
+    alert('Password reset.');
+  } else {
+    let message = 'Could not reset password. Please try again.';
+    try { const body = await response.json(); if (body.message) message = body.message; } catch (ignored) {}
+    alert(message);
+  }
+});
+document.querySelector('#add-manager-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const response = await fetch('/api/admin/managers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    body: JSON.stringify({ username: formData.get('username'), password: formData.get('password') })
+  });
+  if (response.ok) {
+    form.reset();
+    await loadManagerList();
+  } else {
+    let message = 'Could not create manager account. Please try again.';
+    try { const body = await response.json(); if (body.message) message = body.message; } catch (ignored) {}
+    alert(message);
+  }
+});
 document.querySelector('#schedule-body').addEventListener('click', event => {
-  if (state.role !== 'MANAGER') return;
+  if (!state.canManage) return;
   if (suppressNextClick) { suppressNextClick = false; return; }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openShiftMenu({ type: 'shift', shift }, event.clientX, event.clientY); return; }
@@ -190,7 +242,7 @@ document.querySelector('#schedule-body').addEventListener('click', event => {
   if (nameEl) openEmployeeDialog(nameEl.dataset.employeeName);
 });
 document.querySelector('#schedule-body').addEventListener('keydown', event => {
-  if (state.role !== 'MANAGER') return;
+  if (!state.canManage) return;
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) {
@@ -437,7 +489,7 @@ const DRAG_THRESHOLD_PX = 4;
 let dragState = null;
 let suppressNextClick = false;
 document.querySelector('#schedule-body').addEventListener('mousedown', event => {
-  if (state.role !== 'MANAGER') return;
+  if (!state.canManage) return;
   if (event.button !== 0) return;
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (!shiftElement) return;
