@@ -27,6 +27,13 @@
   </main>
   <script>
     (function () {
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        var badge = document.querySelector('.location-badge');
+        badge.textContent = 'DEMO MODE';
+        badge.style.background = '#f7d35c';
+        badge.style.color = '#7a5c05';
+        document.title = document.title.replace('COSM', 'DEMO MODE');
+      }
       var match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
       document.getElementById('csrf-input').value = match ? decodeURIComponent(match[1]) : '';
       var params = new URLSearchParams(window.location.search);

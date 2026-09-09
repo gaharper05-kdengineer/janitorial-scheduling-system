@@ -1,3 +1,11 @@
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.querySelectorAll('.location-badge').forEach(el => {
+    el.textContent = 'DEMO MODE';
+    el.style.background = 'var(--yellow)';
+    el.style.color = '#7a5c05';
+  });
+  document.title = document.title.replace('COSM', 'DEMO MODE');
+}
 const state = { weekStart: monday(new Date()), shifts: [], employees: [], role: 'EMPLOYEE' };
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 

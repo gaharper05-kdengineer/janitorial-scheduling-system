@@ -11,7 +11,7 @@ INSERT INTO shifts ( employee_name, shift_date, start_time, end_time, lunch_minu
 ('Bob', DATEADD('DAY', 4, CURRENT_DATE), '7:00 AM', '4:30 PM', 0, 9.00, 'day', false),
 ('Bob', DATEADD('DAY', 5, CURRENT_DATE), '8:00 AM', '4:30 PM', 0, 8.00, 'day', false),
 ('Bob', DATEADD('DAY', 6, CURRENT_DATE), '8:00 AM', '4:30 PM', 0, 8.00, 'day', false),
-('Jill', CURRENT_DATE, '4:00 PM', '11:00 PM', 0, 6.50, 'swing', false),
+('Jill', CURRENT_DATE, '4:00 PM', '11:00 PM', 0, 6.50, 'swing', true),
 ('Jill', DATEADD('DAY', 3, CURRENT_DATE), '4:00 PM', '11:00 PM', 0, 6.50, 'swing', false),
 ('Jill', DATEADD('DAY', 4, CURRENT_DATE), '8:00 AM', '4:30 PM', 0, 8.00, 'day', false),
 ('Jill', DATEADD('DAY', 5, CURRENT_DATE), '8:00 AM', '4:30 PM', 0, 8.00, 'day', false),
@@ -19,3 +19,11 @@ INSERT INTO shifts ( employee_name, shift_date, start_time, end_time, lunch_minu
 ('George', DATEADD('DAY', 2, CURRENT_DATE), '10:00 PM', '6:00 AM', 0, 7.50, 'overnight', false),
 ('George', DATEADD('DAY', 3, CURRENT_DATE), '10:00 PM', '6:00 AM', 0, 7.50, 'overnight', false),
 ('George', DATEADD('DAY', 5, CURRENT_DATE), '4:00 PM', '10:00 PM', 0, 6.00, 'swing', false);
+
+INSERT INTO employees (name, employee_id, password, on_call) VALUES
+('Jane', '11111', '$2a$10$mCgfW4TMNI7s/M565DGVte78Y0vhzc3Xggn9CxIJcurS4f7LE/WTu', false),
+('Patrick', null, null, false),
+('Bob', null, null, false),
+('Jill', null, null, false),
+('George', null, null, true),
+('Marcus', null, null, false);
