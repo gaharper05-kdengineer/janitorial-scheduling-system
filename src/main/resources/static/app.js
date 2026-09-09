@@ -231,6 +231,26 @@ document.querySelector('#add-manager-form').addEventListener('submit', async eve
     alert(message);
   }
 });
+document.querySelector('#system-status-button').addEventListener('click', async () => {
+  document.querySelector('#account-menu').hidden = true;
+  const body = document.querySelector('#system-status-body');
+  body.className = 'loading';
+  body.textContent = 'Loading...';
+  document.querySelector('#system-status-dialog').showModal();
+  const response = await fetch('/api/admin/system');
+  if (!response.ok) { body.className = ''; body.textContent = 'Could not load system status.'; return; }
+  const status = await response.json();
+  const items = [
+    ['Environment', status.environment],
+    ['Database', `${status.databaseProduct} (${status.databaseStatus})`],
+    ['Employees on roster', status.employeeCount],
+    ['Shifts stored', status.shiftCount],
+    ['Server time', new Date(status.serverTime).toLocaleString()]
+  ];
+  body.className = 'status-grid';
+  body.innerHTML = items.map(([label, value]) => `<div class="status-item"><span class="status-label">${escapeHtml(label)}</span><span class="status-value">${escapeHtml(String(value))}</span></div>`).join('');
+});
+document.querySelector('#system-status-close').addEventListener('click', () => document.querySelector('#system-status-dialog').close());
 document.querySelector('#schedule-body').addEventListener('click', event => {
   if (!state.canManage) return;
   if (suppressNextClick) { suppressNextClick = false; return; }

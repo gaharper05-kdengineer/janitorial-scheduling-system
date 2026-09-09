@@ -14,7 +14,7 @@
     <div class="login-card">
       <div class="brand"><span class="brand-mark">C</span><span>CleanTrack</span><span class="location-badge">Location: COSM</span></div>
       <p class="eyebrow">Operations desk</p>
-      <h1>Manager sign in</h1>
+      <h1 id="login-heading">Manager sign in</h1>
       <p id="login-message" hidden></p>
       <form method="post" action="/login" class="login-form">
         <input type="hidden" name="_csrf" id="csrf-input">
@@ -22,7 +22,8 @@
         <label>Password<input name="password" type="password" required></label>
         <button type="submit" class="button button-primary">Sign in</button>
       </form>
-      <p class="switch-role">Employee? <a href="/employee-login.html">Sign in here</a></p>
+      <p class="switch-role" id="switch-role-manager">Employee? <a href="/employee-login.html">Sign in here</a> &middot; Admin? <a href="/login.html?admin=1">Sign in here</a></p>
+      <p class="switch-role" id="switch-role-admin" hidden>Not an admin? <a href="/login.html">Manager sign in</a></p>
     </div>
   </main>
   <script>
@@ -37,6 +38,11 @@
       var match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
       document.getElementById('csrf-input').value = match ? decodeURIComponent(match[1]) : '';
       var params = new URLSearchParams(window.location.search);
+      if (params.has('admin')) {
+        document.getElementById('login-heading').textContent = 'Admin sign in';
+        document.getElementById('switch-role-manager').hidden = true;
+        document.getElementById('switch-role-admin').hidden = false;
+      }
       var message = document.getElementById('login-message');
       if (params.has('error')) { message.textContent = 'Invalid username or password.'; message.hidden = false; }
       else if (params.has('logout')) { message.textContent = 'You have been logged out.'; message.hidden = false; }
