@@ -248,7 +248,7 @@ document.querySelector('#delete-employee').addEventListener('click', () => {
   const name = document.querySelector('#employee-form').originalName.value;
   if (!name) return;
   document.querySelector('#employee-dialog').close();
-  confirmDelete('Delete employee', `Remove ${name} from the schedule? Their past shifts are kept, but they won't appear on future weeks.`, async () => {
+  confirmDelete('Delete employee', `Remove ${name} from the schedule? Shifts after today will be deleted, but today's and past shifts are kept.`, async () => {
     const response = await fetch(`/api/schedule/employees/${encodeURIComponent(name)}`, { method: 'DELETE', headers: csrfHeaders() });
     if (response.ok) {
       await Promise.all([loadWeek(), loadEmployees()]);

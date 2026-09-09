@@ -160,6 +160,11 @@ public class ScheduleController {
 
     @DeleteMapping("/employees/{employeeName}")
     public void deleteEmployee(@PathVariable String employeeName) {
+        LocalDate today = LocalDate.now();
+        List<Shift> futureShifts = shiftRepository.findByEmployeeName(employeeName).stream()
+                .filter(shift -> shift.getShiftDate().isAfter(today))
+                .toList();
+        shiftRepository.deleteAll(futureShifts);
         employeeRepository.findByName(employeeName).ifPresent(employeeRepository::delete);
     }
 
