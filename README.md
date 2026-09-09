@@ -54,6 +54,38 @@ The following ERD represents the current CleanTrack database model.
 
 ![CleanTrack ERD](./docs/database/cleantrack-erd.drawio.png)
 
+## Application Screenshots
+
+### Weekly Scheduling Dashboard
+
+The weekly scheduling dashboard allows management to review employee shifts, scheduled hours, and staffing coverage.
+
+![CleanTrack Weekly Schedule](./docs/screenshots/cleantrack-schedule.png)
+
+### Shift Entry
+
+Managers can enter and update employee shift information.
+
+![CleanTrack Shift Entry](./docs/screenshots/cleantrack-shift-entry.png)
+
+### Labor Hours and Variance
+
+CleanTrack automatically calculates scheduled employee hours and compares them against the weekly labor-hour budget.
+
+![CleanTrack Hours](./docs/screenshots/cleantrack-hours.png)
+
+### Daily Staffing Coverage
+
+The dashboard also surfaces daily staffing coverage alongside the weekly budget variance, so managers can see gaps at a glance.
+
+![CleanTrack Coverage and Budget Variance](./docs/screenshots/cleantrack-coverage-budget-variance.png)
+
+### Manager Login
+
+Access to the scheduling system is protected by manager authentication.
+
+![CleanTrack Login](./docs/screenshots/cleantrack-login.png)
+
 ### Development and Deployment
 
 - Visual Studio Code
