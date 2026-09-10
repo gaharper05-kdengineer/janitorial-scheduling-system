@@ -252,7 +252,11 @@ document.querySelector('#system-status-button').addEventListener('click', async 
 });
 document.querySelector('#system-status-close').addEventListener('click', () => document.querySelector('#system-status-dialog').close());
 document.querySelector('#schedule-body').addEventListener('click', event => {
-  if (!state.canManage) return;
+  if (!state.canManage) {
+    const shiftElement = event.target.closest('.shift[data-shift-id]');
+    if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openShiftDetail(shift, event.clientX, event.clientY); }
+    return;
+  }
   if (suppressNextClick) { suppressNextClick = false; return; }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) { const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId); if (shift) openShiftMenu({ type: 'shift', shift }, event.clientX, event.clientY); return; }
@@ -262,8 +266,17 @@ document.querySelector('#schedule-body').addEventListener('click', event => {
   if (nameEl) openEmployeeDialog(nameEl.dataset.employeeName);
 });
 document.querySelector('#schedule-body').addEventListener('keydown', event => {
-  if (!state.canManage) return;
   if (event.key !== 'Enter' && event.key !== ' ') return;
+  if (!state.canManage) {
+    const shiftElement = event.target.closest('.shift[data-shift-id]');
+    if (shiftElement) {
+      event.preventDefault();
+      const shift = state.shifts.find(item => String(item.id) === shiftElement.dataset.shiftId);
+      const rect = shiftElement.getBoundingClientRect();
+      if (shift) openShiftDetail(shift, rect.left, rect.bottom);
+    }
+    return;
+  }
   const shiftElement = event.target.closest('.shift[data-shift-id]');
   if (shiftElement) {
     event.preventDefault();
@@ -378,6 +391,47 @@ function closeShiftMenu() {
     document.removeEventListener('click', shiftMenuOutsideClickHandler);
     shiftMenuOutsideClickHandler = null;
   }
+}
+let shiftDetailOutsideClickHandler = null;
+function openShiftDetail(shift, x, y) {
+  const hasTime = shift.startTime && shift.endTime;
+  const body = document.querySelector('#shift-detail-body');
+  body.textContent = hasTime ? `${regularTime(shift.startTime)} - ${regularTime(shift.endTime)} (${Number(shift.hours).toFixed(2)} hrs)` : 'Time TBD';
+  const popover = document.querySelector('#shift-detail-popover');
+  popover.hidden = false;
+  const left = Math.min(x, window.innerWidth - popover.offsetWidth - 8);
+  const top = Math.min(y, window.innerHeight - popover.offsetHeight - 8);
+  popover.style.left = `${Math.max(8, left)}px`;
+  popover.style.top = `${Math.max(8, top)}px`;
+  if (shiftDetailOutsideClickHandler) document.removeEventListener('click', shiftDetailOutsideClickHandler);
+  shiftDetailOutsideClickHandler = event => {
+    if (event.target.closest('#shift-detail-popover')) return;
+    closeShiftDetail();
+  };
+  setTimeout(() => document.addEventListener('click', shiftDetailOutsideClickHandler), 0);
+  watchForScrollWhileDetailOpen();
+}
+function closeShiftDetail() {
+  document.querySelector('#shift-detail-popover').hidden = true;
+  if (shiftDetailOutsideClickHandler) {
+    document.removeEventListener('click', shiftDetailOutsideClickHandler);
+    shiftDetailOutsideClickHandler = null;
+  }
+}
+function watchForScrollWhileDetailOpen() {
+  const popover = document.querySelector('#shift-detail-popover');
+  const tableWrap = document.querySelector('.table-wrap');
+  const startWindowScroll = window.scrollY;
+  const startTableScroll = tableWrap ? tableWrap.scrollTop : 0;
+  function check() {
+    if (popover.hidden) return;
+    if (window.scrollY !== startWindowScroll || (tableWrap && tableWrap.scrollTop !== startTableScroll)) {
+      closeShiftDetail();
+      return;
+    }
+    requestAnimationFrame(check);
+  }
+  requestAnimationFrame(check);
 }
 async function pasteCopiedShift(context) {
   if (!copiedShift || !context) return;
@@ -503,7 +557,9 @@ document.querySelector('#delete-confirm-ok').addEventListener('click', async () 
   button.addEventListener('click', () => document.querySelector('#delete-confirm-dialog').close());
 });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !document.querySelector('#shift-menu').hidden) closeShiftMenu();
+  if (event.key !== 'Escape') return;
+  if (!document.querySelector('#shift-menu').hidden) closeShiftMenu();
+  if (!document.querySelector('#shift-detail-popover').hidden) closeShiftDetail();
 });
 const DRAG_THRESHOLD_PX = 4;
 let dragState = null;
