@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CleanTrack · COSM Atlanta | Employee sign in</title>
+  <title>CleanTrack · COSM - Atlanta | Employee sign in</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 <body>
   <main class="shell login-shell">
     <div class="login-card">
-      <div class="brand"><span class="brand-mark">C</span><span>CleanTrack</span><span class="location-badge">Location: COSM Atlanta</span></div>
+      <div class="brand"><span class="brand-mark">C</span><span>CleanTrack</span><span class="location-badge">Location: COSM - Atlanta</span></div>
       <p class="eyebrow">Operations desk</p>
       <h1>Employee sign in</h1>
       <p id="login-message" hidden></p>
@@ -32,7 +32,7 @@
         badge.textContent = 'DEMO MODE';
         badge.style.background = '#f7d35c';
         badge.style.color = '#7a5c05';
-        document.title = document.title.replace('COSM Atlanta', 'DEMO MODE');
+        document.title = document.title.replace('COSM - Atlanta', 'DEMO MODE');
       }
       var match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
       document.getElementById('csrf-input').value = match ? decodeURIComponent(match[1]) : '';
