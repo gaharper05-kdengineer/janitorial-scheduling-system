@@ -16,6 +16,9 @@ import static org.springframework.security.test.web.servlet.response.SecurityMoc
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Covers the self-service "Update login credentials" flow: rejects a wrong
+// current password, and confirms a successful change actually takes effect
+// (old password stops working, new one works) rather than just returning 200.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AccountControllerTest {

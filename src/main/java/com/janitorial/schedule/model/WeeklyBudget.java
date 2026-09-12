@@ -8,6 +8,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 
+/**
+ * A manager-set target hour budget for one specific week (keyed by that
+ * week's Monday). A week with no row here falls back to a default (416
+ * hours, see ScheduleController.DEFAULT_BUDGET_HOURS) -- rows are only
+ * created the first time a manager edits a week's budget away from that
+ * default.
+ */
 @Entity
 @Table(name = "weekly_budgets")
 public class WeeklyBudget {

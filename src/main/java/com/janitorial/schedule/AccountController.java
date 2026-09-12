@@ -17,6 +17,12 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.Principal;
 import java.util.Map;
 
+/**
+ * Self-service account endpoints available to whoever is currently logged
+ * in (any ManagerAccount role -- MANAGER or ADMIN). Notably, this is also
+ * how the seeded default MANAGER/ADMIN credentials get changed to real ones
+ * in production -- see the gotcha documented on ManagerAccountSeeder.
+ */
 @RestController
 @RequestMapping("/api/account")
 public class AccountController {
@@ -48,6 +54,11 @@ public class AccountController {
         managerAccountRepository.save(account);
     }
 
+    // The frontend uses this to decide what UI to show (see loadRole() in
+    // app.js). Checked in this order because Spring Security's role
+    // hierarchy only affects *authorization* decisions (hasRole checks) --
+    // an ADMIN's actual granted authority is still just ROLE_ADMIN, so it
+    // has to be checked first or an admin would be reported as a manager.
     @GetMapping("/me")
     public MeResponse me(Authentication authentication) {
         java.util.Set<String> authorities = authentication.getAuthorities().stream()

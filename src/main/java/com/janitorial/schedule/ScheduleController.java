@@ -28,9 +28,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Owns the weekly schedule: shifts, the per-week hour budget, and roster
+ * mutations that originate from editing a shift or the employee dialog
+ * (rename, assign a 5-digit login ID, delete). All write endpoints require
+ * MANAGER (or ADMIN, via the role hierarchy) -- see SecurityConfig.
+ */
 @RestController
 @RequestMapping("/api/schedule")
 public class ScheduleController {
+    // Falls back to this when a week has no WeeklyBudget row yet (416 = a
+    // round default for a mid-size crew's weekly hours; each week can
+    // override it independently via PUT /api/schedule/budget).
     private static final double DEFAULT_BUDGET_HOURS = 416;
 
     private final ShiftRepository shiftRepository;
@@ -100,6 +109,13 @@ public class ScheduleController {
         return shiftRepository.save(shift);
     }
 
+    // Adding a shift for a name not yet on the roster should just add them
+    // to the roster too, rather than failing -- this is the only place new
+    // Employee rows get created outside of the explicit "Add employee" flow.
+    // The unique constraint on Employee.name (V5 migration) is what makes
+    // the catch here safe: if two requests race to create the same new
+    // employee, one wins and the other's insert fails, which is fine since
+    // by then the employee already exists.
     private void ensureEmployeeExists(String employeeName) {
         if (employeeRepository.findByName(employeeName).isEmpty()) {
             try {
@@ -115,6 +131,12 @@ public class ScheduleController {
         shiftRepository.deleteById(id);
     }
 
+    // Handles both renaming an employee and assigning/changing their 5-digit
+    // login ID in one request. Name and ID each must stay unique, but a save
+    // that doesn't actually change the conflicting field (e.g. re-saving the
+    // same employee with their own existing ID) must not trip the duplicate
+    // check against itself -- hence comparing against currentEmployee's id
+    // rather than just checking "does another row have this name/ID".
     @PutMapping("/employees/{employeeName}")
     public List<Shift> updateEmployee(@PathVariable String employeeName, @RequestBody EmployeeUpdateRequest request) {
         String newName = request.employeeName() == null ? "" : request.employeeName().trim();
@@ -158,6 +180,13 @@ public class ScheduleController {
         return shiftRepository.saveAll(shifts);
     }
 
+    // "Delete employee" (the roster-only removal, triggered from the
+    // employee dialog's "Delete employee" button) intentionally keeps
+    // today's and past shifts on the schedule -- only shifts strictly after
+    // today are removed. This preserves the historical/current record (e.g.
+    // for payroll) while stopping the person from being scheduled going
+    // forward. Contrast with deleteEmployeeHistory below, which is a full,
+    // irreversible purge.
     @DeleteMapping("/employees/{employeeName}")
     public void deleteEmployee(@PathVariable String employeeName) {
         LocalDate today = LocalDate.now();
@@ -168,6 +197,11 @@ public class ScheduleController {
         employeeRepository.findByName(employeeName).ifPresent(employeeRepository::delete);
     }
 
+    // "Remove from history" -- deletes every shift the employee ever had,
+    // past and future, plus the roster row. Irreversible; the UI confirms
+    // this explicitly before calling it (see confirmDelete() in app.js) and
+    // keeps it as a visually distinct, separate button from deleteEmployee
+    // above so the two aren't confused.
     @DeleteMapping("/employees/{employeeName}/history")
     public void deleteEmployeeHistory(@PathVariable String employeeName) {
         shiftRepository.deleteAll(shiftRepository.findByEmployeeName(employeeName));

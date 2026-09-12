@@ -6,6 +6,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * A username/password login with elevated (non-employee) access. Despite the
+ * class name this table holds both MANAGER and ADMIN accounts, distinguished
+ * by {@code role} -- they share one table because both are "a login with
+ * management access," and ADMIN is really MANAGER-plus-more (see the
+ * RoleHierarchy bean in SecurityConfig, which grants ADMIN every MANAGER
+ * permission automatically). The two default accounts are created on first
+ * boot by ManagerAccountSeeder.
+ */
 @Entity
 @Table(name = "manager_accounts")
 public class ManagerAccount {

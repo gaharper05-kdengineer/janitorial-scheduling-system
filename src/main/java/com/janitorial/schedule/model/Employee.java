@@ -7,6 +7,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * A roster entry. Employees exist independently of shifts so a manager can
+ * keep a name on the roster (e.g. across a slow week) without a shift row --
+ * see V2 migration, which backfilled this table from historical shift data.
+ * {@code employeeId} + {@code password} are only set when a manager assigns
+ * a 5-digit login (password is just the ID, BCrypt-hashed); both stay null
+ * for employees who don't need to log in themselves. See
+ * {@link com.janitorial.schedule.security.AppUserDetailsService} for how
+ * employeeId doubles as the login username.
+ */
 @Entity
 @Table(name = "employees")
 public class Employee {

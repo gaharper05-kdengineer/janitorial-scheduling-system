@@ -21,6 +21,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Covers the employee-ID login path (5-digit ID as both username and
+// password) and the uniqueness constraint that prevents two employees
+// sharing one ID.
 @SpringBootTest
 @AutoConfigureMockMvc
 class EmployeeLoginTest {

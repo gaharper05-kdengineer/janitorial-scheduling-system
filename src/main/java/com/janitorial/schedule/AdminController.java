@@ -18,6 +18,14 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * ADMIN-only management of MANAGER accounts (create, list, reset password).
+ * Secured by the /api/admin/** matcher in SecurityConfig -- ADMIN only, not
+ * inherited by MANAGER. Deliberately has no delete/deactivate endpoint and
+ * cannot touch other ADMIN accounts; both were out of scope when this was
+ * built (the only requirement was letting the developer's ADMIN account
+ * survive the client rotating the shared MANAGER password).
+ */
 @RestController
 @RequestMapping("/api/admin/managers")
 public class AdminController {
@@ -51,6 +59,11 @@ public class AdminController {
         return new ManagerSummary(account.getId(), account.getUsername());
     }
 
+    // No current-password check here (unlike AccountController's
+    // self-service credentials update) -- an admin resetting someone else's
+    // password inherently can't know it. The role filter below is what
+    // stops this endpoint from being used to reset an ADMIN account's
+    // password through the MANAGER-list UI.
     @PutMapping("/{id}/password")
     public void resetPassword(@PathVariable Long id, @RequestBody ResetPasswordRequest request) {
         String newPassword = request.newPassword() == null ? "" : request.newPassword();

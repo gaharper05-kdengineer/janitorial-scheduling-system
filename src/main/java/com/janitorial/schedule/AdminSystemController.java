@@ -11,6 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Arrays;
 
+/**
+ * ADMIN-only read-only diagnostics (active environment, database
+ * connectivity, roster/shift counts, server time), surfaced through the
+ * "System status" option in the account menu. Exists so the developer can
+ * sanity-check the deployed app without direct database or Render dashboard
+ * access.
+ */
 @RestController
 @RequestMapping("/api/admin/system")
 public class AdminSystemController {
@@ -29,6 +36,11 @@ public class AdminSystemController {
 
     @GetMapping
     public SystemStatus status() {
+        // "prod" is set via SPRING_PROFILES_ACTIVE on Render (see
+        // application-prod.properties); its absence means local H2 dev.
+        // This is more reliable than the frontend's old hostname-based
+        // "DEMO MODE" badge check, since it reflects what's actually
+        // configured server-side rather than guessing from the URL.
         boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         String databaseProduct;
         String databaseStatus;

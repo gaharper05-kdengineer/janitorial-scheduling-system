@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Baseline auth check: anonymous requests get redirected to login, an
+// authenticated MANAGER gets through.
 @SpringBootTest
 @AutoConfigureMockMvc
 class ScheduleControllerSecurityTest {

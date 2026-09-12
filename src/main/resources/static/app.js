@@ -1,3 +1,27 @@
+// Frontend for the main schedule page (index.html). Plain HTML/CSS/JS, no
+// build step or framework -- Spring Boot serves this directly as a static
+// file. Deliberately written dense (multiple statements per line, template
+// literals for markup) rather than split across many small files; comments
+// below focus on WHY things work the way they do, not what each line does.
+//
+// Rough map of what's below:
+//   - state/formatting helpers (state, regularTime, to24HourTime, hours math)
+//   - render(): rebuilds the whole schedule table from state
+//   - load*()/bootstrap(): fetches data from the backend on page load
+//   - role-gated UI: loadRole() sets state.canManage/.role and toggles the
+//     `view-only` / `is-admin` body classes that styles.css keys off of
+//   - dialogs: shift add/edit, employee edit, admin (manage managers,
+//     system status), credentials, delete confirmation
+//   - shift-menu vs shift-detail-popover: managers tap a shift to get an
+//     edit/copy/delete menu; view-only (employee) sessions instead get a
+//     read-only popover showing the full time range (see openShiftDetail)
+//   - mouse drag-to-move/duplicate a shift (desktop only -- touch devices
+//     use the copy/paste menu items instead, see pasteCopiedShift)
+//
+// Same-origin check as a cheap "am I running against the real deployed app
+// or a local dev/demo instance" signal, purely cosmetic (swaps the location
+// badge/title to make DEMO MODE obvious) -- has no effect on what data is
+// loaded or which backend is talked to.
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
   document.querySelectorAll('.location-badge').forEach(el => {
     el.textContent = 'DEMO MODE';
@@ -15,6 +39,12 @@ function displayDate(date) { return date.toLocaleDateString('en-US', { month: 's
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
+// Spring Security's cookie-based CSRF: the server writes the current token
+// into a readable XSRF-TOKEN cookie (see CsrfCookieFilter/SecurityConfig on
+// the backend), and we echo it back as a header on every mutating request.
+// Call this fresh right before each fetch rather than caching the headers --
+// the token can rotate (e.g. right after login), and a stale token gets a
+// 403.
 function csrfHeaders() {
   const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
   return match ? { 'X-XSRF-TOKEN': decodeURIComponent(match[1]) } : {};
@@ -23,6 +53,8 @@ async function logout() {
   await fetch('/logout', { method: 'POST', headers: csrfHeaders() });
   window.location.href = '/login.html?logout';
 }
+// Displays a stored time (either "H:mm" 24-hour or already "h:mm AM/PM") as
+// "h:mm AM/PM" for the schedule grid and dialogs.
 function regularTime(value) {
   if (!value) return '';
   const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
@@ -38,6 +70,8 @@ function regularTime(value) {
   const regularHour = hour % 12 || 12;
   return `${regularHour}:${minute} ${suffix}`;
 }
+// The inverse of regularTime(): converts a stored time to "HH:mm" so it can
+// populate a native <input type="time">, which requires 24-hour format.
 function to24HourTime(value) {
   if (!value) return '';
   const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
@@ -51,6 +85,10 @@ function to24HourTime(value) {
   }
   return `${String(hour).padStart(2, '0')}:${minute}`;
 }
+// Mirrors Shift.LUNCH_ELIGIBLE_MINUTES on the backend (both must agree, or
+// the "Calculated hours" preview in the Add Shift dialog would disagree
+// with what the server actually saves) -- a lunch deduction only applies to
+// shifts longer than 6 hours.
 const LUNCH_ELIGIBLE_MINUTES = 6 * 60;
 function effectiveLunchMinutes(start, end, lunchMinutes = 0) {
   if (!start || !end) return 0;
@@ -76,11 +114,21 @@ function updateCalculatedHours() {
   document.querySelector('#calculated-hours').value = hours === null ? 'No time set (optional)' : `${hours.toFixed(2)} hours`;
 }
 function renderHead() { document.querySelector('#schedule-head').innerHTML = `<tr><th>Employee</th>${days.map((day, index) => { const date = new Date(state.weekStart); date.setDate(date.getDate() + index); return `<th><span class="day-name">${day}</span><span class="day-date">${displayDate(date)}</span></th>`; }).join('')}<th>Total</th></tr>`; }
+// Rebuilds the entire schedule table from state.shifts/state.employees.
+// Called after every load and every successful mutation -- there's no
+// incremental DOM patching, the whole tbody is replaced each time.
 function render() {
   renderHead();
+  // The employee list for the table is the union of the roster
+  // (state.employees, manager-only -- see loadWeek) and whoever has a shift
+  // this week, so a name with a shift but no roster row (or vice versa)
+  // still shows up.
   const rosterNames = state.employees.map(employee => employee.name);
   const shiftNames = state.shifts.map(shift => shift.employeeName);
   const shiftTypeOrder = { day: 0, swing: 1, overnight: 2 };
+  // Groups employees by their most common shift type this week (day, then
+  // evening, then overnight), so the table reads as clusters of similar
+  // shifts rather than a flat alphabetical list.
   const employees = [...new Set([...rosterNames, ...shiftNames])]
     .map(name => {
       const employeeShifts = state.shifts.filter(shift => shift.employeeName === name);
@@ -131,6 +179,12 @@ async function loadBudget() {
   document.querySelector('#budget').value = body.hours;
   document.querySelector('#budget-note').textContent = 'Budget saved for this week';
 }
+// Determines what UI this session gets. `view-only` (styles.css) hides every
+// editing control for EMPLOYEE sessions; `is-admin` additionally reveals the
+// ADMIN-only "Manage managers" / "System status" account-menu options. Real
+// enforcement of what each role can actually do happens server-side
+// (SecurityConfig) -- this is UI-only, so hiding a button here is a
+// convenience, not the security boundary.
 async function loadRole() {
   const response = await fetch('/api/account/me');
   const body = response.ok ? await response.json() : { role: 'EMPLOYEE' };
@@ -359,6 +413,10 @@ document.querySelector('#delete-employee-history').addEventListener('click', () 
     }
   });
 });
+// Manager/admin action menu (Edit/Copy/Add/Paste/Delete), positioned near
+// the click/tap. Only ever opened for canManage sessions -- the read-only
+// equivalent for view-only sessions is openShiftDetail() further down,
+// which shows the full time range but offers no actions.
 let menuContext = null;
 let copiedShift = null;
 let shiftMenuOutsideClickHandler = null;
@@ -392,6 +450,12 @@ function closeShiftMenu() {
     shiftMenuOutsideClickHandler = null;
   }
 }
+// Read-only popover for view-only (employee) sessions: on narrow screens
+// the shift-time text in the grid gets truncated with an ellipsis (see
+// .shift-time in styles.css), and employees have no "Edit shift" menu to
+// fall back on to see the full range -- this is the only way for them to
+// see it. Mirrors openShiftMenu's positioning/outside-click/scroll-dismiss
+// behavior but shows plain text instead of action buttons.
 let shiftDetailOutsideClickHandler = null;
 function openShiftDetail(shift, x, y) {
   const hasTime = shift.startTime && shift.endTime;
@@ -433,6 +497,11 @@ function watchForScrollWhileDetailOpen() {
   }
   requestAnimationFrame(check);
 }
+// Copy/Paste is the touch-friendly alternative to drag-and-drop below (HTML
+// mouse events don't fire reliably from touchscreens, so tablet/phone
+// managers use Copy on a shift then Paste on the target cell instead of
+// dragging). Pasting onto an existing shift updates it in place; pasting
+// onto an empty cell creates a new one.
 async function pasteCopiedShift(context) {
   if (!copiedShift || !context) return;
   if (context.type === 'shift') {
@@ -525,6 +594,11 @@ document.querySelector('#shift-menu-paste').addEventListener('click', () => {
   closeShiftMenu();
   pasteCopiedShift(context);
 });
+// Shared confirmation dialog for every destructive action (delete shift,
+// delete employee, remove employee history). Deliberately a real <dialog>
+// rather than the browser's native confirm() -- confirm()/prompt() proved
+// unreliable in this app's environment, so all confirmations route through
+// this one reusable dialog + pendingDeleteAction callback instead.
 let pendingDeleteAction = null;
 function confirmDelete(title, message, action) {
   pendingDeleteAction = action;
@@ -561,6 +635,15 @@ document.addEventListener('keydown', event => {
   if (!document.querySelector('#shift-menu').hidden) closeShiftMenu();
   if (!document.querySelector('#shift-detail-popover').hidden) closeShiftDetail();
 });
+// Custom mouse-based drag-and-drop for moving/duplicating a shift (hold
+// Ctrl/Cmd while dragging to duplicate instead of move) -- built on raw
+// mousedown/mousemove/mouseup rather than the HTML5 drag-and-drop API for
+// more control over the ghost element and drop-target highlighting.
+// DRAG_THRESHOLD_PX distinguishes an intentional drag from a plain click
+// (a click naturally involves a few pixels of mouse movement between
+// mousedown and mouseup); below it, the click handler runs normally to open
+// the shift menu instead. suppressNextClick then prevents the click that
+// fires right after a completed drag's mouseup from also opening that menu.
 const DRAG_THRESHOLD_PX = 4;
 let dragState = null;
 let suppressNextClick = false;
@@ -643,6 +726,10 @@ document.querySelector('#shift-form').lunchMinutes.addEventListener('change', up
 document.querySelector('#shift-form .close').addEventListener('click', () => document.querySelector('#shift-dialog').close());
 document.querySelector('#shift-form .dialog-actions [value="cancel"]').addEventListener('click', () => document.querySelector('#shift-dialog').close());
 document.querySelector('#shift-form').addEventListener('submit', async event => { event.preventDefault(); const form = event.target; const formData = new FormData(form); const shiftId = formData.get('shiftId'); const response = await fetch(shiftId ? `/api/schedule/${shiftId}` : '/api/schedule', { method: shiftId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ employeeName: formData.get('employeeName'), shiftDate: formData.get('shiftDate'), startTime: formData.get('startTime'), endTime: formData.get('endTime'), lunchMinutes: Number(formData.get('lunchMinutes') || 0), shiftType: formData.get('shiftType'), onCall: formData.get('onCall') === 'on' }) }); if (response.ok) { document.querySelector('#shift-dialog').close(); form.reset(); form.shiftId.value = ''; document.querySelector('#dialog-title').textContent = 'Add employee shift'; updateCalculatedHours(); await loadWeek(); } else { const errorText = await response.text(); console.error('Failed to save shift:', errorText); alert('Could not save shift. Please check the form values and try again.'); } });
+// A credentials change invalidates the current session's assumptions (new
+// username/password), so force a real re-login afterward rather than trying
+// to keep the session alive -- simpler and avoids any risk of a stale
+// session outliving the old credentials.
 async function logoutAfterCredentialsChange() {
   await fetch('/logout', { method: 'POST', headers: csrfHeaders() });
   window.location.href = '/login.html?credentialsUpdated=1';

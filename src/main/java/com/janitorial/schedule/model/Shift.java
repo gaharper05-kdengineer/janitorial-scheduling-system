@@ -12,6 +12,15 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
+/**
+ * A single scheduled shift for one employee on one date. Hours are computed
+ * from start/end time and an optional lunch deduction rather than entered
+ * directly, so this entity always keeps {@code hours} consistent with the
+ * other time fields -- see {@link #calculateHours} and the constructors that
+ * derive it. {@code startTime}/{@code endTime} are optional (a shift can be
+ * "on the schedule" with no time yet, shown as "Time TBD" in the UI); when
+ * either is blank, hours is 0 rather than throwing.
+ */
 @Entity
 @Table(name = "shifts")
 public class Shift {
@@ -82,6 +91,10 @@ public class Shift {
         this.onCall = onCall;
     }
 
+    // A requested lunch deduction is only applied to shifts longer than 6 hours,
+    // matching typical labor-law lunch-break eligibility rules; a manager can
+    // still pick "30 min" or "1 hour" on a short shift in the UI, it's just
+    // silently ignored here rather than rejected.
     private static final long LUNCH_ELIGIBLE_MINUTES = Duration.ofHours(6).toMinutes();
 
     public static double calculateHours(String startTime, String endTime) {
@@ -112,6 +125,9 @@ public class Shift {
         return value == null || value.isBlank();
     }
 
+    // Overnight shifts (e.g. 10:00 PM - 6:00 AM) produce a negative or zero
+    // duration when compared as same-day times; treat that as spanning
+    // midnight instead of rejecting it.
     private static long shiftMinutes(String startTime, String endTime) {
         LocalTime start = parseTime(startTime);
         LocalTime end = parseTime(endTime);
@@ -122,6 +138,10 @@ public class Shift {
         return minutes;
     }
 
+    // Times can arrive either as "8:00 AM" (rendered by the UI, see
+    // regularTime() in app.js) or as a 24-hour "HH:mm"/"H:mm" string (the
+    // browser's native <input type="time">, or from older stored data), so
+    // try each format in turn rather than requiring one canonical shape.
     private static LocalTime parseTime(String value) {
         if (isBlank(value)) {
             throw new IllegalArgumentException("Start and end times are required");

@@ -7,6 +7,8 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+// Covers the hours/lunch-deduction math in Shift, including the 6-hour
+// eligibility threshold below which a requested lunch break is ignored.
 class ShiftTest {
 
     @Test

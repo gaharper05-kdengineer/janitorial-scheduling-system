@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Confirms EMPLOYEE is genuinely read-only: can view the schedule, but every
+// mutating endpoint (add/edit/delete shift, edit employee) is forbidden.
 @SpringBootTest
 @AutoConfigureMockMvc
 class EmployeeRoleSecurityTest {

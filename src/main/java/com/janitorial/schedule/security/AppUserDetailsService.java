@@ -8,6 +8,13 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+/**
+ * Resolves a login username against both account types the app supports:
+ * ManagerAccount (username/password, role MANAGER or ADMIN) is tried first,
+ * then Employee (5-digit employeeId as both username and, hashed, password;
+ * always role EMPLOYEE). A given username can only ever match one or the
+ * other, so there's no ambiguity in trying them in sequence.
+ */
 @Service
 public class AppUserDetailsService implements UserDetailsService {
     private final ManagerAccountRepository managerAccountRepository;

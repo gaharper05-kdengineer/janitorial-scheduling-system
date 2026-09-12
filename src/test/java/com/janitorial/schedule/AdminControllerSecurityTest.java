@@ -13,6 +13,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Confirms /api/admin/** is ADMIN-only, and -- the important part --
+// concretely proves the RoleHierarchy bean in SecurityConfig actually makes
+// ADMIN inherit MANAGER access at runtime (not just in theory), by having an
+// ADMIN-authenticated request succeed against a real MANAGER-only endpoint.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AdminControllerSecurityTest {

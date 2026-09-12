@@ -7,6 +7,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * Read-only roster listing, used by the frontend to populate employee
+ * autocomplete/selection and on-call badges. Roster mutations (rename,
+ * delete, assign an ID) live on ScheduleController instead, under
+ * /api/schedule/employees/** -- this class only ever reads.
+ */
 @RestController
 @RequestMapping("/api/employees")
 public class EmployeeController {
